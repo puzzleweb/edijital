@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StorageService } from './services/storage';
+import { STORAGE_KEYS, StorageService } from './services/storage';
 import { SupabaseService } from './services/supabaseService';
 import { supabase } from './services/supabase';
 import { Package, SiteSettings } from './types';
@@ -22,11 +22,15 @@ import { AdminLogin } from './admin/AdminLogin';
 import { Phone, MessageSquare, Shield, ArrowUp } from 'lucide-react';
 
 export function App() {
-  // Theme state
+  // Theme state (Default to Light Theme on first visit)
   const [darkMode, setDarkMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem('edijital_theme_dark_v1');
-    if (saved !== null) return saved === 'true';
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.DARK_MODE);
+      if (saved !== null) return saved === 'true';
+    } catch {
+      // ignore
+    }
+    return false; // Always default to Light Theme
   });
 
   // App mode: 'public' | 'admin'
@@ -95,7 +99,11 @@ export function App() {
     } else {
       document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem('edijital_theme_dark_v1', String(darkMode));
+    try {
+      localStorage.setItem(STORAGE_KEYS.DARK_MODE, String(darkMode));
+    } catch {
+      // ignore
+    }
   }, [darkMode]);
 
   // Sync dynamic theme styling (radius, primary color)
