@@ -9,7 +9,7 @@ interface AboutSectionProps {
 
 export const AboutSection: React.FC<AboutSectionProps> = ({ settings, onOpenApply }) => {
   return (
-    <section id="hakkimizda" className="relative py-18 md:py-24 bg-gradient-to-b from-white via-blue-50/20 to-white dark:from-zinc-950 dark:via-blue-950/15 dark:to-zinc-950 border-t border-slate-200/80 dark:border-zinc-800/80 overflow-hidden">
+    <section id="hakkimizda" className="relative min-h-[calc(100svh-var(--header-total-height,68px))] flex flex-col justify-center py-10 md:py-14 lg:py-16 bg-gradient-to-b from-white via-blue-50/20 to-white dark:from-zinc-950 dark:via-blue-950/15 dark:to-zinc-950 border-t border-slate-200/80 dark:border-zinc-800/80 overflow-hidden">
       
       {/* Background Ambient Glows */}
       <div className="absolute top-1/4 right-5 w-[480px] h-[480px] bg-gradient-to-br from-blue-500/10 to-sky-400/5 dark:from-blue-600/15 dark:to-sky-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -42,9 +42,9 @@ export const AboutSection: React.FC<AboutSectionProps> = ({ settings, onOpenAppl
         </svg>
       </div>
 
-      <div className="relative z-10 max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="relative z-10 w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
 
           {/* Left Text */}
           <div className="lg:col-span-7 space-y-6">

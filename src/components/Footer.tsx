@@ -1,6 +1,7 @@
-import React from 'react';
-import { Phone, Mail, MapPin, Lock } from 'lucide-react';
+import React, { useState } from 'react';
+import { Phone, Mail, MapPin, Lock, ShieldCheck } from 'lucide-react';
 import { SiteSettings } from '../types';
+import { LegalModal, LegalDocType } from './LegalModal';
 
 interface FooterProps {
   settings: SiteSettings;
@@ -15,6 +16,13 @@ export const Footer: React.FC<FooterProps> = ({
   onOpenTrack,
   onOpenApply
 }) => {
+  const [legalModalOpen, setLegalModalOpen] = useState(false);
+  const [activeLegalDoc, setActiveLegalDoc] = useState<LegalDocType>('kvkk');
+
+  const handleOpenLegal = (doc: LegalDocType) => {
+    setActiveLegalDoc(doc);
+    setLegalModalOpen(true);
+  };
   return (
     <footer className="bg-zinc-50 dark:bg-black text-zinc-600 dark:text-zinc-400 border-t border-zinc-200 dark:border-zinc-800 pt-16 pb-12 transition-colors">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
@@ -143,14 +151,48 @@ export const Footer: React.FC<FooterProps> = ({
           <div>
             {settings.copyrightText || `Telif Hakkı © ${new Date().getFullYear()} ${settings.companyName} - Tüm Hakları Saklıdır.`}
           </div>
-          <div>
-            {settings.address 
-              ? `${settings.address.toUpperCase()} ${(settings.addressDetail || settings.district || '').toUpperCase()}` 
-              : 'OSTİM OSB, 100. YIL BLV PRESTİJ PLAZA NO:55 A BLOK 20 KAT:2, 06374 YENİMAHALLE / ANKARA'}
+          
+          {/* Legal / Contract Links */}
+          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-x-3.5 gap-y-2 text-xs">
+            <button
+              onClick={() => handleOpenLegal('kvkk')}
+              className="hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer"
+            >
+              KVKK Aydınlatma Metni
+            </button>
+            <span className="text-zinc-300 dark:text-zinc-750 hidden sm:inline">•</span>
+            <button
+              onClick={() => handleOpenLegal('mesafeli-satis')}
+              className="hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer"
+            >
+              Mesafeli Satış Sözleşmesi
+            </button>
+            <span className="text-zinc-300 dark:text-zinc-750 hidden sm:inline">•</span>
+            <button
+              onClick={() => handleOpenLegal('gizlilik')}
+              className="hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer"
+            >
+              Gizlilik & Güvenlik
+            </button>
+            <span className="text-zinc-300 dark:text-zinc-750 hidden sm:inline">•</span>
+            <button
+              onClick={() => handleOpenLegal('teslimat-iade')}
+              className="hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer"
+            >
+              Teslimat & İade
+            </button>
           </div>
         </div>
 
       </div>
+
+      {/* Legal Contract Policy Modal */}
+      <LegalModal
+        isOpen={legalModalOpen}
+        onClose={() => setLegalModalOpen(false)}
+        settings={settings}
+        initialDoc={activeLegalDoc}
+      />
     </footer>
   );
 };

@@ -137,18 +137,18 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ settings }) => {
   };
 
   return (
-    <section id="iletisim" className="py-16 md:py-24 bg-slate-50 dark:bg-zinc-950 border-t border-slate-200/80 dark:border-zinc-800/80">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="iletisim" className="relative min-h-[calc(100svh-var(--header-total-height,68px))] flex flex-col justify-center py-10 md:py-14 lg:py-16 bg-slate-50 dark:bg-zinc-950 border-t border-slate-200/80 dark:border-zinc-800/80 overflow-hidden">
+      <div className="relative z-10 w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
+        <div className="text-center max-w-3xl mx-auto mb-6 md:mb-10">
           <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-2 block">
             İletişim & Lokasyon
           </span>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white mb-3">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-2.5">
             Gelin, Ofis & Mağazamızda Görüşelim
           </h2>
-          <p className="text-sm sm:text-base text-slate-600 dark:text-zinc-400">
+          <p className="text-xs sm:text-sm lg:text-base text-slate-600 dark:text-zinc-400">
             Mesai saatleri içinde güvenli e-imza hizmetleri ve fiyatları hakkında bilgi almak veya yüz yüze başvurmak için bizi dilediğiniz zaman ziyaret edebilirsiniz.
           </p>
         </div>
