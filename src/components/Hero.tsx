@@ -25,7 +25,7 @@ interface HeroProps {
 
 export const Hero: React.FC<HeroProps> = ({ settings, packages, onOpenApply }) => {
   return (
-    <section id="hero" className="relative min-h-[calc(100svh-68px)] md:min-h-[calc(100svh-104px)] flex items-center py-8 md:py-12 bg-white dark:bg-black border-b border-slate-150 dark:border-zinc-900 overflow-hidden">
+    <section id="hero" className="relative min-h-[calc(100svh-var(--header-total-height,68px))] flex items-center py-8 md:py-12 bg-white dark:bg-black border-b border-slate-150 dark:border-zinc-900 overflow-hidden">
       
       {/* Background Ambient Glow Orbs */}
       <div className="absolute top-1/4 -right-24 w-[450px] md:w-[650px] h-[450px] md:h-[650px] bg-gradient-to-br from-blue-500/15 via-indigo-500/10 to-transparent dark:from-blue-600/25 dark:via-indigo-600/15 rounded-full blur-3xl pointer-events-none" />

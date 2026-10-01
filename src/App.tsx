@@ -106,6 +106,37 @@ export function App() {
     }
   }, [darkMode]);
 
+  // Ref for measuring exact top navigation height
+  const topNavRef = React.useRef<HTMLDivElement>(null);
+
+  // Dynamically sync sticky header height with CSS variable and scroll padding
+  useEffect(() => {
+    const updateHeaderHeight = () => {
+      if (topNavRef.current) {
+        const height = topNavRef.current.offsetHeight;
+        if (height > 0) {
+          document.documentElement.style.setProperty('--header-total-height', `${height}px`);
+        }
+      }
+    };
+
+    updateHeaderHeight();
+
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && topNavRef.current) {
+      observer = new ResizeObserver(() => {
+        updateHeaderHeight();
+      });
+      observer.observe(topNavRef.current);
+    }
+
+    window.addEventListener('resize', updateHeaderHeight);
+    return () => {
+      if (observer) observer.disconnect();
+      window.removeEventListener('resize', updateHeaderHeight);
+    };
+  }, [settings.announcementActive, settings.sections?.announcement, settings.announcementText]);
+
   // Sync dynamic theme styling (radius, primary color)
   useEffect(() => {
     const radius = settings.theme?.cardRadius || 'rounded-2xl';
@@ -248,7 +279,7 @@ export function App() {
     <div className="min-h-screen flex flex-col bg-white dark:bg-black text-gray-900 dark:text-zinc-100 transition-colors">
 
       {/* 100% Fixed Top Navigation (Zero Jitter, Fixed on all devices) */}
-      <div className="fixed top-0 left-0 right-0 z-40 w-full bg-white/95 dark:bg-black/95 backdrop-blur-md">
+      <div ref={topNavRef} className="fixed top-0 left-0 right-0 z-40 w-full bg-white/95 dark:bg-black/95 backdrop-blur-md">
         {(settings.sections?.announcement !== false && settings.announcementActive) && (
           <AnnouncementBar
             settings={settings}
@@ -266,9 +297,10 @@ export function App() {
         />
       </div>
 
-      {/* Spacer so main content is perfectly offset below fixed header */}
+      {/* Dynamic Spacer so main content is perfectly offset below fixed header */}
       <div
-        className={`w-full shrink-0 ${(settings.sections?.announcement !== false && settings.announcementActive) ? 'h-[68px] md:h-[104px]' : 'h-[68px]'}`}
+        style={{ height: 'var(--header-total-height, 68px)' }}
+        className="w-full shrink-0"
         aria-hidden="true"
       />
 

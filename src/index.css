@@ -31,17 +31,11 @@
 
   html {
     scroll-behavior: smooth;
-    scroll-padding-top: 69px;
+    scroll-padding-top: var(--header-total-height, 68px);
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Inter, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: clip;
-  }
-
-  @media (min-width: 768px) {
-    html {
-      scroll-padding-top: 110px;
-    }
   }
 
   body {
