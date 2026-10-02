@@ -74,7 +74,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
   phoneDisplay: '0545 960 33 03',
   whatsapp: '905459603303',
   email: 'edijitalfinans@gmail.com',
-  address: 'Ostim OSB, 100. Yıl Blv PRESTİJ PLAZA NO:55 A BLOK 20 KAT:2, 06374',
+  address: 'Ostim OSB, 100. Yıl Blv. Prestij Plaza No:55 A Blok No:20 Kat:2',
   addressDetail: 'Yenimahalle / ANKARA',
   district: 'Yenimahalle / ANKARA',
   city: 'ANKARA',

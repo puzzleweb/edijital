@@ -10,7 +10,8 @@ import {
   X,
   Clock,
   MapPin,
-  ChevronUp
+  Building,
+  User
 } from 'lucide-react';
 import { SiteSettings } from '../types';
 
@@ -27,7 +28,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 }) => {
   const [contactOpen, setContactOpen] = useState(false);
 
-  // Close contact popover when scrolling fast or clicking outside
+  // Close contact popover when Escape is pressed
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setContactOpen(false);
@@ -46,21 +47,22 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         />
       )}
 
-      {/* Contact Quick Action Sheet / Popover (Opens Upward from Contact Button) */}
+      {/* Sleek Mobile Contact Action Sheet */}
       <div 
-        className={`fixed left-4 right-4 bottom-20 z-50 md:hidden bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 shadow-2xl transition-all duration-300 transform ${
+        className={`fixed left-3 right-3 bottom-20 z-50 md:hidden bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-2xl transition-all duration-300 transform ${
           contactOpen 
             ? 'opacity-100 translate-y-0 pointer-events-auto scale-100' 
             : 'opacity-0 translate-y-4 pointer-events-none scale-95'
         }`}
       >
+        {/* Sheet Header */}
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-zinc-100 dark:border-zinc-800">
           <div>
             <h4 className="font-bold text-sm text-zinc-900 dark:text-white">
               Hızlı İletişim Kanalları
             </h4>
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-              Uzman temsilcimizle hemen görüşün
+              Eryaman ve Ostim şubelerimize doğrudan ulaşın
             </p>
           </div>
           <button
@@ -72,57 +74,125 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           </button>
         </div>
 
+        {/* 2 Branches Clean List */}
         <div className="space-y-2.5">
-          {/* Direct Phone Call Button */}
-          <a
-            href={`tel:${settings.phone}`}
-            onClick={() => setContactOpen(false)}
-            className="flex items-center justify-between p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/50 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-950/70 transition active:scale-98 group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm">
-                <Phone className="w-4 h-4" />
-              </div>
-              <div className="text-left">
-                <div className="text-xs font-bold text-zinc-900 dark:text-white">Telefonla Ara</div>
-                <div className="text-[11px] font-mono font-semibold text-blue-600 dark:text-blue-400">{settings.phoneDisplay}</div>
-              </div>
-            </div>
-            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-600 text-white shadow-xs">
-              Hemen Ara
-            </span>
-          </a>
 
-          {/* WhatsApp Direct Chat Button */}
-          <a
-            href={`https://wa.me/${settings.whatsapp}?text=Merhaba,%20e-imza%20hakkinda%20bilgi%20ve%20fiyat%20almak%20istiyorum.`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setContactOpen(false)}
-            className="flex items-center justify-between p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-900/50 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-950/70 transition active:scale-98 group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-sm">
-                <MessageSquare className="w-4 h-4 fill-current" />
+          {/* 1. Eryaman Branch */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/60">
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                <span className="text-xs font-bold text-zinc-900 dark:text-white">Eryaman Şubesi</span>
               </div>
-              <div className="text-left">
-                <div className="text-xs font-bold text-zinc-900 dark:text-white">WhatsApp Destek Hattı</div>
-                <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Anında Canlı Yanıt</div>
+              <span className="text-[10px] text-zinc-500 font-medium">Etimesgut</span>
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-mono font-bold text-zinc-800 dark:text-zinc-200">
+                0545 960 33 03
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <a
+                  href="tel:05459603303"
+                  onClick={() => setContactOpen(false)}
+                  className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1 shadow-xs active:scale-95 transition"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>Ara</span>
+                </a>
+                <a
+                  href="https://wa.me/905459603303?text=Merhaba,%20Eryaman%20subenizden%20e-imza%20hakkinda%20bilgi%20almak%20istiyorum."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setContactOpen(false)}
+                  className="p-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-xs active:scale-95 transition"
+                  title="WhatsApp"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 fill-current" />
+                </a>
               </div>
             </div>
-            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-500 text-white shadow-xs">
-              Yazışma Başlat
-            </span>
-          </a>
+          </div>
+
+          {/* 2. Ostim Branch */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/60 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+                <span className="text-xs font-bold text-zinc-900 dark:text-white">Ostim Şubesi</span>
+              </div>
+              <span className="text-[10px] text-zinc-500 font-medium">Prestij Plaza</span>
+            </div>
+
+            {/* Simanur Kaya */}
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/60 dark:border-zinc-700/40">
+              <div>
+                <div className="text-[11px] font-bold text-zinc-900 dark:text-white">Simanur Kaya</div>
+                <div className="text-[10px] font-mono text-zinc-500">0543 246 06 55</div>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <a
+                  href="tel:05432460655"
+                  onClick={() => setContactOpen(false)}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 shadow-xs active:scale-95 transition"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>Ara</span>
+                </a>
+                <a
+                  href="https://wa.me/905432460655?text=Merhaba%20Simanur%20Hanim,%20Ostim%20subenizden%20e-imza%20hakkinda%20bilgi%20almak%20istiyorum."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setContactOpen(false)}
+                  className="p-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-xs active:scale-95 transition"
+                  title="WhatsApp"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 fill-current" />
+                </a>
+              </div>
+            </div>
+
+            {/* Cenk Gürses */}
+            <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-200/60 dark:border-zinc-700/40">
+              <div>
+                <div className="text-[11px] font-bold text-zinc-900 dark:text-white">Cenk Gürses</div>
+                <div className="text-[10px] font-mono text-zinc-500">0541 287 06 55</div>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <a
+                  href="tel:05412870655"
+                  onClick={() => setContactOpen(false)}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 shadow-xs active:scale-95 transition"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>Ara</span>
+                </a>
+                <a
+                  href="https://wa.me/905412870655?text=Merhaba%20Cenk%20Bey,%20Ostim%20subenizden%20e-imza%20hakkinda%20bilgi%20almak%20istiyorum."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setContactOpen(false)}
+                  className="p-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-xs active:scale-95 transition"
+                  title="WhatsApp"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 fill-current" />
+                </a>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         {/* Working Hours Mini Badge */}
-        <div className="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
-          <span className="flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-blue-500" />
-            <span>Çalışma: {settings.workingHours}</span>
+        <div className="mt-3 pt-2.5 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
+          <span className="flex items-center gap-1">
+            <Clock className="w-3 h-3 text-blue-500" />
+            <span>09:00 – 17:00 (Hafta İçi)</span>
           </span>
-          <span className="font-semibold text-emerald-600 dark:text-emerald-400">15 Dk Teslim</span>
+          <span className="font-semibold text-emerald-600 dark:text-emerald-400">15 Dk Elden Teslim</span>
         </div>
       </div>
 

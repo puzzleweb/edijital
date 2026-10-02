@@ -1,7 +1,6 @@
 import React from 'react';
 import { 
   ArrowRight, 
-  Phone, 
   Check, 
   ShieldCheck, 
   Zap, 
@@ -104,13 +103,7 @@ export const Hero: React.FC<HeroProps> = ({ settings, packages, onOpenApply }) =
                 <ArrowRight className="w-4 h-4" />
               </button>
 
-              <a
-                href={`tel:${settings.phone}`}
-                className="px-4 sm:px-4.5 py-3 sm:py-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 text-xs sm:text-sm font-semibold border border-slate-200 dark:border-zinc-700 flex items-center justify-center gap-2 transition active:scale-98 shadow-xs whitespace-nowrap shrink-0"
-              >
-                <Phone className="w-4 h-4 text-emerald-600" />
-                <span>{settings.phoneDisplay}</span>
-              </a>
+
 
               <a
                 href="#fiyatlar"

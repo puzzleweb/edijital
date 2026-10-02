@@ -392,15 +392,7 @@ export function App() {
           <span className="text-xs font-bold">WhatsApp Destek</span>
         </a>
 
-        {/* Call Now */}
-        <a
-          href={`tel:${settings.phone}`}
-          className="pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/30 hover:scale-105 active:scale-95 transition-all group"
-          title="Hemen Arayın"
-        >
-          <Phone className="w-5 h-5" />
-          <span className="text-xs font-bold">{settings.phoneDisplay}</span>
-        </a>
+
       </div>
 
       {/* Mobile Bottom Navigation Bar with Quick Contact Popup */}

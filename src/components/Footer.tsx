@@ -23,6 +23,7 @@ export const Footer: React.FC<FooterProps> = ({
     setActiveLegalDoc(doc);
     setLegalModalOpen(true);
   };
+
   return (
     <footer className="bg-zinc-50 dark:bg-black text-zinc-600 dark:text-zinc-400 border-t border-zinc-200 dark:border-zinc-800 pt-16 pb-12 transition-colors">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
@@ -47,10 +48,6 @@ export const Footer: React.FC<FooterProps> = ({
             </p>
 
             <div className="pt-1 text-xs text-zinc-600 dark:text-zinc-400 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                <span>{settings.address}, {settings.addressDetail}</span>
-              </div>
               <div className="flex items-center gap-2">
                 <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 <a href={`tel:${settings.phone}`} className="hover:text-blue-600 font-semibold">{settings.phoneDisplay}</a>
@@ -84,7 +81,7 @@ export const Footer: React.FC<FooterProps> = ({
                 <a href="#hakkimizda" className="hover:text-blue-600 transition">Hakkımızda</a>
               </li>
               <li>
-                <a href="#iletisim" className="hover:text-blue-600 transition">İletişim</a>
+                <a href="#iletisim" className="hover:text-blue-600 transition">İletişim & Şubeler</a>
               </li>
             </ul>
           </div>
@@ -96,27 +93,27 @@ export const Footer: React.FC<FooterProps> = ({
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
-                <button onClick={onOpenApply} className="hover:text-blue-600 transition text-left">
+                <button onClick={onOpenApply} className="hover:text-blue-600 transition text-left cursor-pointer">
                   1 Yıllık E-İmza Paketi
                 </button>
               </li>
               <li>
-                <button onClick={onOpenApply} className="hover:text-blue-600 transition text-left">
+                <button onClick={onOpenApply} className="hover:text-blue-600 transition text-left cursor-pointer">
                   3 Yıllık E-İmza Paketi
                 </button>
               </li>
               <li>
-                <button onClick={onOpenApply} className="hover:text-blue-600 transition text-left">
+                <button onClick={onOpenApply} className="hover:text-blue-600 transition text-left cursor-pointer">
                   Kurumsal E-İmza Çözümleri
                 </button>
               </li>
               <li>
-                <button onClick={onOpenApply} className="hover:text-blue-600 transition text-left">
+                <button onClick={onOpenApply} className="hover:text-blue-600 transition text-left cursor-pointer">
                   Ankara Adrese Yerinde Teslimat
                 </button>
               </li>
               <li>
-                <button onClick={onOpenTrack} className="text-blue-600 font-semibold hover:underline text-left">
+                <button onClick={onOpenTrack} className="text-blue-600 font-semibold hover:underline text-left cursor-pointer">
                   Başvuru Durumu Takip Et
                 </button>
               </li>
@@ -132,7 +129,7 @@ export const Footer: React.FC<FooterProps> = ({
               <li>
                 <button
                   onClick={onOpenAdmin}
-                  className="flex items-center gap-1.5 font-bold text-zinc-800 dark:text-zinc-200 hover:text-blue-600"
+                  className="flex items-center gap-1.5 font-bold text-zinc-800 dark:text-zinc-200 hover:text-blue-600 cursor-pointer"
                 >
                   <Lock className="w-3.5 h-3.5 text-blue-600" />
                   <span>Yönetici Paneli Girişi</span>
