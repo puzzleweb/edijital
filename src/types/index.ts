@@ -1,11 +1,11 @@
 export type DeliveryType = 'magaza' | 'ankara_yerinde' | 'kurye' | 'kargo' | (string & {});
 export type ApplicationStatus = 'yeni' | 'inceleniyor' | 'onaylandi' | 'hazirlandi' | 'teslim_edildi' | 'iptal';
-export type PackageCategory = 'bireysel' | 'kurumsal';
+export type PackageCategory = 'bireysel' | 'kurumsal' | 'mali_muhur' | (string & {});
 
 export interface Package {
   id: string;
   name: string;
-  duration: '1 Yıl' | '3 Yıl';
+  duration: string;
   price: number;
   originalPrice?: number;
   category: PackageCategory;

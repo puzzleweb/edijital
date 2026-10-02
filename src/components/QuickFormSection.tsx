@@ -23,7 +23,9 @@ export const QuickFormSection: React.FC<QuickFormSectionProps> = ({ settings, pa
 
   const [formName, setFormName] = useState('');
   const [formPhone, setFormPhone] = useState('');
-  const [formDuration, setFormDuration] = useState<'1 Yıl' | '3 Yıl'>('3 Yıl');
+  const [selectedPkgId, setSelectedPkgId] = useState<string>(
+    packages.find(p => p.popular)?.id || packages[0]?.id || ''
+  );
   const [formDelivery, setFormDelivery] = useState<string>(
     activeDeliveryOptions[0]?.title || 'Ankara Adreste Yerinde Teslim & Kurulum'
   );
@@ -31,6 +33,13 @@ export const QuickFormSection: React.FC<QuickFormSectionProps> = ({ settings, pa
   const [formLoading, setFormLoading] = useState(false);
   const [createdTrackingCode, setCreatedTrackingCode] = useState('');
   const [honeypot, setHoneypot] = useState('');
+
+  useEffect(() => {
+    if (packages.length > 0 && (!selectedPkgId || !packages.some(p => p.id === selectedPkgId))) {
+      const pop = packages.find(p => p.popular) || packages[0];
+      if (pop) setSelectedPkgId(pop.id);
+    }
+  }, [packages, selectedPkgId]);
 
   useEffect(() => {
     if (activeDeliveryOptions.length > 0 && !activeDeliveryOptions.some(d => d.title === formDelivery)) {
@@ -73,7 +82,7 @@ export const QuickFormSection: React.FC<QuickFormSectionProps> = ({ settings, pa
     setFormLoading(true);
     setTimeout(() => {
       // Find matching package
-      const targetPkg = packages.find(p => p.duration === formDuration) || packages[0];
+      const targetPkg = packages.find(p => p.id === selectedPkgId) || packages[0];
       const selectedDeliveryOpt = activeDeliveryOptions.find(d => d.title === formDelivery);
       const deliveryTitle = selectedDeliveryOpt ? selectedDeliveryOpt.title : formDelivery;
 
@@ -83,10 +92,10 @@ export const QuickFormSection: React.FC<QuickFormSectionProps> = ({ settings, pa
         phone: formPhone.trim(),
         email: '',
         isCorporate: false,
-        packageId: targetPkg ? targetPkg.id : (formDuration === '1 Yıl' ? 'pkg-1-yil' : 'pkg-3-yil'),
-        packageName: targetPkg ? targetPkg.name : `${formDuration} E-İmza`,
-        duration: formDuration,
-        price: targetPkg ? targetPkg.price : (formDuration === '1 Yıl' ? 890 : 1790),
+        packageId: targetPkg ? targetPkg.id : 'pkg-1-yil',
+        packageName: targetPkg ? targetPkg.name : 'E-İmza Paketi',
+        duration: targetPkg ? targetPkg.duration : '1 Yıl',
+        price: targetPkg ? targetPkg.price : 2450,
         deliveryType: deliveryTitle,
         address: 'Hızlı Başvuru (Adres belirtilmedi)',
         city: 'ANKARA',
@@ -226,49 +235,45 @@ export const QuickFormSection: React.FC<QuickFormSectionProps> = ({ settings, pa
                     <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
                       Paket Tercihi Seçiniz:
                     </label>
-                    <div className="grid grid-cols-2 gap-3">
-
-                      {/* 1 Yıllık */}
-                      <button
-                        type="button"
-                        onClick={() => setFormDuration('1 Yıl')}
-                        className={`p-3.5 rounded-xl border text-left flex items-center gap-3 transition cursor-pointer ${formDuration === '1 Yıl'
-                          ? 'border-[#0080c8] bg-blue-50/30 dark:bg-blue-950/20'
-                          : 'border-slate-200 dark:border-zinc-700 bg-slate-50/50 dark:bg-zinc-800/40 hover:bg-slate-50'
-                          }`}
-                      >
-                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${formDuration === '1 Yıl' ? 'border-[#0080c8]' : 'border-slate-400'
-                          }`}>
-                          {formDuration === '1 Yıl' && <div className="w-2 h-2 rounded-full bg-[#0080c8]"></div>}
-                        </div>
-                        <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">
-                          1 Yıllık E-İmza
-                        </span>
-                      </button>
-
-                      {/* 3 Yıllık */}
-                      <button
-                        type="button"
-                        onClick={() => setFormDuration('3 Yıl')}
-                        className={`p-3.5 rounded-xl border-2 text-left flex items-center gap-3 transition cursor-pointer ${formDuration === '3 Yıl'
-                          ? 'border-[#0080c8] bg-blue-50/40 dark:bg-blue-950/30'
-                          : 'border-slate-200 dark:border-zinc-700 bg-slate-50/50 dark:bg-zinc-800/40 hover:bg-slate-50'
-                          }`}
-                      >
-                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${formDuration === '3 Yıl' ? 'border-[#0080c8]' : 'border-slate-400'
-                          }`}>
-                          {formDuration === '3 Yıl' && <div className="w-2 h-2 rounded-full bg-[#0080c8]"></div>}
-                        </div>
-                        <div>
-                          <span className="text-xs font-bold text-[#0080c8] block leading-tight">
-                            3 Yıllık E-İmza
-                          </span>
-                          <span className="text-[10px] text-slate-500 dark:text-zinc-400 block mt-0.5">
-                            Tavsiye Edilen
-                          </span>
-                        </div>
-                      </button>
-
+                    <div className={`grid grid-cols-1 ${packages.length > 1 ? 'sm:grid-cols-2' : ''} gap-2.5`}>
+                      {packages.map((pkg) => {
+                        const isSelected = selectedPkgId === pkg.id;
+                        return (
+                          <button
+                            key={pkg.id}
+                            type="button"
+                            onClick={() => setSelectedPkgId(pkg.id)}
+                            className={`p-3 rounded-xl border text-left flex items-center justify-between gap-2 transition cursor-pointer ${
+                              isSelected
+                                ? 'border-[#0080c8] bg-blue-50/40 dark:bg-blue-950/30 ring-1 ring-[#0080c8]'
+                                : 'border-slate-200 dark:border-zinc-700 bg-slate-50/50 dark:bg-zinc-800/40 hover:bg-slate-50 dark:hover:bg-zinc-800/70'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                isSelected ? 'border-[#0080c8]' : 'border-slate-400'
+                              }`}>
+                                {isSelected && <div className="w-2 h-2 rounded-full bg-[#0080c8]"></div>}
+                              </div>
+                              <div className="truncate">
+                                <span className={`text-xs font-bold block truncate ${
+                                  isSelected ? 'text-[#0080c8]' : 'text-slate-800 dark:text-zinc-200'
+                                }`}>
+                                  {pkg.name}
+                                </span>
+                                {pkg.badge && (
+                                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium block leading-none mt-0.5">
+                                    {pkg.badge}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-xs font-extrabold text-blue-600 dark:text-blue-400 shrink-0">
+                              {pkg.price.toLocaleString('tr-TR')} ₺
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 

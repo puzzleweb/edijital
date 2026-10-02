@@ -213,7 +213,7 @@ export const StorageService = {
 
       // 2. Packages
       const cloudPackages = await SupabaseService.getPackages();
-      if (cloudPackages && cloudPackages.length === 2) {
+      if (cloudPackages && cloudPackages.length > 0) {
         localStorage.setItem(STORAGE_KEYS.PACKAGES, JSON.stringify(cloudPackages));
         notifyUpdated('edijital_packages_updated');
       }
@@ -288,7 +288,7 @@ export const StorageService = {
     }
     try {
       const parsed: Package[] = JSON.parse(data);
-      if (!Array.isArray(parsed) || parsed.length !== 2 || parsed.some(p => p.id !== 'pkg-1-yil' && p.id !== 'pkg-3-yil')) {
+      if (!Array.isArray(parsed) || parsed.length === 0) {
         localStorage.setItem(STORAGE_KEYS.PACKAGES, JSON.stringify(ONLY_PACKAGES));
         return ONLY_PACKAGES;
       }
@@ -300,16 +300,40 @@ export const StorageService = {
   },
 
   updatePackage(updatedPkg: Package): void {
-    if (updatedPkg.id !== 'pkg-1-yil' && updatedPkg.id !== 'pkg-3-yil') return;
     const packages = this.getPackages();
     const index = packages.findIndex(p => p.id === updatedPkg.id);
     if (index !== -1) {
       packages[index] = updatedPkg;
+    } else {
+      packages.push(updatedPkg);
     }
     localStorage.setItem(STORAGE_KEYS.PACKAGES, JSON.stringify(packages));
     notifyUpdated('edijital_packages_updated');
     // Async push to Supabase
     SupabaseService.updatePackage(updatedPkg).catch(console.error);
+  },
+
+  addPackage(newPkgData: Omit<Package, 'id'> | Package): Package {
+    const packages = this.getPackages();
+    const newPkg: Package = {
+      ...newPkgData,
+      id: ('id' in newPkgData && newPkgData.id) ? newPkgData.id : `pkg-${Date.now()}`
+    };
+    packages.push(newPkg);
+    localStorage.setItem(STORAGE_KEYS.PACKAGES, JSON.stringify(packages));
+    notifyUpdated('edijital_packages_updated');
+    // Async push to Supabase
+    SupabaseService.updatePackage(newPkg).catch(console.error);
+    return newPkg;
+  },
+
+  deletePackage(id: string): void {
+    const packages = this.getPackages();
+    const filtered = packages.filter(p => p.id !== id);
+    localStorage.setItem(STORAGE_KEYS.PACKAGES, JSON.stringify(filtered));
+    notifyUpdated('edijital_packages_updated');
+    // Async push to Supabase
+    SupabaseService.deletePackage(id).catch(console.error);
   },
 
   // ==========================================

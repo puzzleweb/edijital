@@ -298,6 +298,19 @@ export const SupabaseService = {
     }
   },
 
+  async deletePackage(id: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('packages')
+        .delete()
+        .eq('id', id);
+
+      return !error;
+    } catch {
+      return false;
+    }
+  },
+
   // ==========================================
   // APPLICATIONS
   // ==========================================

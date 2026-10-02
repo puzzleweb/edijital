@@ -58,8 +58,14 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ packages, settin
           </p>
         </div>
 
-        {/* Pricing Cards Grid - Exactly 2 Packages (1 Yıllık & 3 Yıllık) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-10">
+        {/* Pricing Cards Grid */}
+        <div className={`grid grid-cols-1 ${
+          packages.length === 1 
+            ? 'max-w-md' 
+            : packages.length === 2 
+              ? 'md:grid-cols-2 max-w-4xl' 
+              : 'md:grid-cols-2 lg:grid-cols-3 max-w-6xl'
+        } gap-6 mx-auto mb-10`}>
           {packages.map((pkg) => (
             <div
               key={pkg.id}
@@ -68,17 +74,32 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ packages, settin
                 : 'bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white'
                 }`}
             >
-              {pkg.popular && (
+              {pkg.popular ? (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-md text-[10px] font-bold bg-blue-600 text-white tracking-wider uppercase">
-                  En Çok Tercih Edilen
+                  {pkg.badge || 'En Çok Tercih Edilen'}
                 </div>
-              )}
+              ) : pkg.badge ? (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-md text-[10px] font-bold bg-amber-500 text-white tracking-wider uppercase">
+                  {pkg.badge}
+                </div>
+              ) : null}
 
               <div>
                 <div className="mb-4">
-                  <h3 className={`text-lg font-bold mb-1 ${pkg.popular ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
-                    {pkg.name}
-                  </h3>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <h3 className={`text-lg font-bold ${pkg.popular ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                      {pkg.name}
+                    </h3>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      pkg.category === 'mali_muhur'
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                        : pkg.category === 'kurumsal'
+                          ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
+                          : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                    }`}>
+                      {pkg.category === 'mali_muhur' ? 'MALİ MÜHÜR' : pkg.category ? pkg.category.toUpperCase() : 'BİREYSEL'}
+                    </span>
+                  </div>
                   <p className={`text-xs ${pkg.popular ? 'text-slate-400' : 'text-slate-500 dark:text-zinc-400'}`}>
                     {pkg.description}
                   </p>
