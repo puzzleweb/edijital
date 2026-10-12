@@ -1,19 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { SiteSettings, DeliveryOptionItem, DeliveryType } from '../types';
 import { StorageService, DEFAULT_DELIVERY_OPTIONS } from '../services/storage';
-import { Settings, Save, Check, Phone, MapPin, Clock, Bell, Sparkles, RefreshCw, Truck, Plus, Trash2 } from 'lucide-react';
+import { Settings, Save, Check, Phone, MapPin, Clock, Bell, Sparkles, RefreshCw, Truck, Plus, Trash2, CreditCard, Building2, Landmark, Wallet, ShieldCheck } from 'lucide-react';
 
 interface AdminSettingsProps {
   settings: SiteSettings;
 }
 
 export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings }) => {
-  const [formData, setFormData] = useState<SiteSettings>(() => ({
-    ...settings,
-    deliveryOptions: (settings.deliveryOptions && settings.deliveryOptions.length > 0)
+  const [formData, setFormData] = useState<SiteSettings>(() => {
+    const raw = (settings.deliveryOptions && settings.deliveryOptions.length > 0)
       ? settings.deliveryOptions
-      : DEFAULT_DELIVERY_OPTIONS
-  }));
+      : DEFAULT_DELIVERY_OPTIONS;
+    const filtered = raw.filter(d => d.id !== 'del-1' && d.id !== 'del-2' && !d.title?.includes('Ostim') && !d.title?.includes('Ankara Adreste'));
+    return {
+      ...settings,
+      deliveryOptions: filtered.length > 0 ? filtered : DEFAULT_DELIVERY_OPTIONS
+    };
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -40,7 +44,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings }) => {
             Site & Firma İletişim Ayarları
           </h2>
           <p className="text-xs text-gray-500 dark:text-zinc-400">
-            Web sitesinde yer alan telefon, WhatsApp, adres, çalışma saatleri, teslimat seçenekleri ve duyuru bandı ayarlarını canlı olarak güncelleyin.
+            Web sitesinde yer alan telefon, WhatsApp, adres, çalışma saatleri, ödeme yöntemleri, banka IBAN bilgileri ve duyuru bandı ayarlarını canlı olarak güncelleyin.
           </p>
         </div>
       </div>
@@ -79,6 +83,202 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings }) => {
               />
             </div>
           </div>
+        </div>
+
+        {/* ÖDEME YÖNTEMLERİ & BANKA HESAP (IBAN) AYARLARI */}
+        <div className="rounded-3xl p-6 sm:p-8 bg-white dark:bg-zinc-900 border border-gray-200/80 dark:border-zinc-800 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-gray-100 dark:border-zinc-800">
+            <div>
+              <h3 className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-2">
+                <Landmark className="w-4 h-4 text-amber-500" />
+                <span>Ödeme Yöntemleri & Banka IBAN Yönetimi</span>
+              </h3>
+              <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-0.5">
+                Ödeme sayfasında müşteriye sunulan Banka Havalesi / EFT, IBAN hesap bilgileri, Kredi Kartı ve Kapıda Ödeme ayarlarını yapılandırın.
+              </p>
+            </div>
+          </div>
+
+          {/* 1. BANKA HAVALESİ / EFT & IBAN BİLGİLERİ */}
+          <div className="p-5 rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-amber-200/50 dark:border-amber-900/30">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span className="font-bold text-xs uppercase tracking-wider text-amber-900 dark:text-amber-200">
+                  Banka Havalesi / EFT & IBAN Bilgileri
+                </span>
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.bankTransferActive !== false}
+                  onChange={(e) => setFormData({ ...formData, bankTransferActive: e.target.checked })}
+                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                />
+                <span className="text-xs font-bold text-amber-900 dark:text-amber-300">
+                  {formData.bankTransferActive !== false ? 'Havale/EFT Aktif' : 'Pasif'}
+                </span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="block font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                  Banka Adı
+                </label>
+                <input
+                  type="text"
+                  placeholder="Örn: Ziraat Bankası / Garanti BBVA / QNB Finansbank"
+                  value={formData.bankName || ''}
+                  onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                  Hesap Sahibi / Alıcı Ünvanı (Firma Adı)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Örn: E-DİJİTAL FİNANS DANIŞMANLIK LİMİTED ŞİRKETİ"
+                  value={formData.ibanRecipient || ''}
+                  onChange={(e) => setFormData({ ...formData, ibanRecipient: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                  IBAN Numarası (TR ile başlar)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Örn: TR12 0006 2000 0001 2345 6789 01"
+                  value={formData.iban || ''}
+                  onChange={(e) => setFormData({ ...formData, iban: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 font-mono font-bold text-gray-900 dark:text-white tracking-wider"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                  Şube Adı / Şube Kodu (Opsiyonel)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Örn: Ostim Şubesi (Şube Kodu: 1042)"
+                  value={formData.bankBranch || ''}
+                  onChange={(e) => setFormData({ ...formData, bankBranch: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                  Müşteriye Gösterilecek Havale Talimatı / Açıklama Notu
+                </label>
+                <input
+                  type="text"
+                  placeholder="Örn: Açıklamaya sipariş takip kodunuzu (Örn: EDF-12345) yazınız."
+                  value={formData.bankTransferNote || ''}
+                  onChange={(e) => setFormData({ ...formData, bankTransferNote: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 2. KREDİ / BANKA KARTI (SANAL POS) AYARLARI */}
+          <div className="p-5 rounded-2xl bg-blue-50/40 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-blue-200/50 dark:border-blue-900/30">
+              <div className="flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span className="font-bold text-xs uppercase tracking-wider text-blue-900 dark:text-blue-200">
+                  Kredi / Banka Kartı (Sanal POS)
+                </span>
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.creditCardActive !== false}
+                  onChange={(e) => setFormData({ ...formData, creditCardActive: e.target.checked })}
+                  className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-xs font-bold text-blue-900 dark:text-blue-300">
+                  {formData.creditCardActive !== false ? 'Kartla Ödeme Aktif' : 'Pasif'}
+                </span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="block font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                  Sanal POS Başlığı / Sağlayıcı
+                </label>
+                <input
+                  type="text"
+                  placeholder="Örn: 256-Bit SSL & 3D Secure Sanal POS"
+                  value={formData.posProvider || ''}
+                  onChange={(e) => setFormData({ ...formData, posProvider: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                  Kart Açıklama / Taksit Bilgilendirmesi
+                </label>
+                <input
+                  type="text"
+                  placeholder="Örn: Tüm Visa, MasterCard ve Troy kartlarla güvenli ödeme."
+                  value={formData.posDescription || ''}
+                  onChange={(e) => setFormData({ ...formData, posDescription: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 3. KAPIDA / ADRESTE ÖDEME AYARLARI */}
+          <div className="p-5 rounded-2xl bg-purple-50/40 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-900/40 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-purple-200/50 dark:border-purple-900/30">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <span className="font-bold text-xs uppercase tracking-wider text-purple-900 dark:text-purple-200">
+                  Kapıda / Adreste Tahsilat
+                </span>
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={Boolean(formData.cashOnDeliveryActive)}
+                  onChange={(e) => setFormData({ ...formData, cashOnDeliveryActive: e.target.checked })}
+                  className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500"
+                />
+                <span className="text-xs font-bold text-purple-900 dark:text-purple-300">
+                  {formData.cashOnDeliveryActive ? 'Kapıda Ödeme Aktif' : 'Kapıda Ödeme Kapalı'}
+                </span>
+              </label>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                Kapıda Ödeme Bilgilendirme Metni
+              </label>
+              <input
+                type="text"
+                placeholder="Örn: Teslimat esnasında nakit veya mobil POS ile kartla ödeme."
+                value={formData.cashOnDeliveryNote || ''}
+                onChange={(e) => setFormData({ ...formData, cashOnDeliveryNote: e.target.value })}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-xs text-gray-900 dark:text-white"
+              />
+            </div>
+          </div>
+
         </div>
 
         {/* Contact info */}

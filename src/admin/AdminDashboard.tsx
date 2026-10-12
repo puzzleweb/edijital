@@ -37,7 +37,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onSelectApplication
 }) => {
   const totalApps = applications.length;
-  const pendingApps = applications.filter(a => a.status === 'yeni' || a.status === 'inceleniyor').length;
+  const pendingApps = applications.filter(a => a.status === 'yeni' || a.status === 'inceleniyor' || a.status === 'hazirlaniyor' || a.status === 'hazirlandi' || a.status === 'onaylandi').length;
   const completedApps = applications.filter(a => a.status === 'teslim_edildi').length;
   const totalRevenue = applications.reduce((sum, a) => sum + (a.status !== 'iptal' ? a.price : 0), 0);
   const unreadMessages = messages.filter(m => !m.read).length;
@@ -46,32 +46,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   return (
     <div className="space-y-8">
-      
-      {/* Top Banner / Welcome */}
-      <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-blue-900/40 via-indigo-900/30 to-zinc-900/60 border border-blue-500/20 backdrop-blur-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-blue-400 mb-1 block">
-            Yönetici Paneli • Genel Bakış
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
-            Hoş Geldiniz, {settings.companyName}
-          </h2>
-          <p className="text-xs sm:text-sm text-zinc-300 mt-1">
-            Ankara genelinde aktif {pendingApps} bekleyen e-imza başvurusu ve {unreadMessages} okunmamış mesajınız bulunmaktadır.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => onNavigate('applications')}
-            className="apple-btn-primary px-4 py-2 text-xs font-semibold flex items-center gap-1.5"
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Tüm Başvuruları Gör</span>
-          </button>
-        </div>
-      </div>
-
       {/* Metric Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         
@@ -89,7 +63,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {totalApps}
           </div>
           <div className="text-xs text-gray-500 dark:text-zinc-400 font-medium">
-            Toplam E-İmza Başvurusu
+            Toplam E-İmza Siparişi
           </div>
         </div>
 
@@ -143,7 +117,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {totalRevenue.toLocaleString('tr-TR')} ₺
           </div>
           <div className="text-xs text-gray-500 dark:text-zinc-400 font-medium">
-            Aktif Başvuru Hacmi
+            Aktif Sipariş Hacmi
           </div>
         </div>
 
@@ -157,10 +131,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                Son Gelen Başvurular
+                Son Gelen Siparişler
               </h3>
               <p className="text-xs text-gray-500 dark:text-zinc-400">
-                En son web sitesinden yapılan e-imza talepleri
+                En son web sitesinden yapılan e-imza online siparişleri
               </p>
             </div>
             <button

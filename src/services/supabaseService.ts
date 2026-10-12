@@ -12,7 +12,7 @@ export const SupabaseService = {
   // ==========================================
   // AUTH & ROLES
   // ==========================================
-  async signIn(email: string, password: string):Promise<{ data: any; error: string | null; role?: string }> {
+  async signIn(email: string, password: string): Promise<{ data: any; error: string | null; role?: string }> {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
@@ -142,7 +142,19 @@ export const SupabaseService = {
         copyrightText: data.copyright_text ?? t.copyrightText ?? '',
         sections: data.sections ?? t.sections ?? {},
         theme: t.theme || t,
-        deliveryOptions: data.delivery_options ?? t.deliveryOptions ?? undefined
+        deliveryOptions: data.delivery_options ?? t.deliveryOptions ?? undefined,
+        bankName: data.bank_name ?? t.bankName ?? undefined,
+        iban: data.iban ?? t.iban ?? undefined,
+        ibanRecipient: data.iban_recipient ?? t.ibanRecipient ?? undefined,
+        bankBranch: data.bank_branch ?? t.bankBranch ?? undefined,
+        bankTransferNote: data.bank_transfer_note ?? t.bankTransferNote ?? undefined,
+        bankTransferActive: data.bank_transfer_active ?? t.bankTransferActive ?? true,
+        creditCardActive: data.credit_card_active ?? t.creditCardActive ?? true,
+        posProvider: data.pos_provider ?? t.posProvider ?? undefined,
+        posDescription: data.pos_description ?? t.posDescription ?? undefined,
+        require3dSecure: data.require_3d_secure ?? t.require3dSecure ?? true,
+        cashOnDeliveryActive: data.cash_on_delivery_active ?? t.cashOnDeliveryActive ?? false,
+        cashOnDeliveryNote: data.cash_on_delivery_note ?? t.cashOnDeliveryNote ?? undefined
       };
     } catch (err) {
       console.error('getSettings error:', err);
@@ -323,30 +335,55 @@ export const SupabaseService = {
 
       if (error || !data) return null;
 
-      return data.map((a: any) => ({
-        id: a.id,
-        trackingCode: a.tracking_code,
-        fullName: a.full_name,
-        tcVkn: a.tc_vkn,
-        phone: a.phone,
-        email: a.email || '',
-        isCorporate: Boolean(a.is_corporate),
-        companyName: a.company_name || undefined,
-        taxOffice: a.tax_office || undefined,
-        packageId: a.package_id,
-        packageName: a.package_name,
-        duration: a.duration,
-        price: Number(a.price),
-        deliveryType: a.delivery_type,
-        address: a.address,
-        city: a.city,
-        district: a.district,
-        notes: a.notes || undefined,
-        adminNotes: a.admin_notes || undefined,
-        status: a.status,
-        createdAt: a.created_at,
-        updatedAt: a.updated_at
-      }));
+      return data.map((a: any) => {
+        const notesLower = String(a.notes || '').toLowerCase();
+        let method: any = 'credit_card';
+        if (a.payment_method === 'bank_transfer' || notesLower.includes('bank_transfer') || notesLower.includes('havale') || notesLower.includes('eft')) {
+          method = 'bank_transfer';
+        } else if (a.payment_method === 'cash_on_delivery' || notesLower.includes('cash_on_delivery') || notesLower.includes('kapıda') || notesLower.includes('kapida')) {
+          method = 'cash_on_delivery';
+        } else if (a.payment_method === 'credit_card') {
+          method = 'credit_card';
+        }
+
+        let payStatus: any = 'odendi';
+        if (a.payment_status) {
+          payStatus = a.payment_status;
+        } else if (method === 'bank_transfer' || notesLower.includes('bekliyor')) {
+          payStatus = 'havale_bekleniyor';
+        } else if (method === 'cash_on_delivery') {
+          payStatus = 'kapida_odeme';
+        }
+
+        return {
+          id: a.id,
+          orderNumber: a.tracking_code,
+          trackingCode: a.tracking_code,
+          fullName: a.full_name,
+          tcVkn: a.tc_vkn,
+          phone: a.phone,
+          email: a.email || '',
+          isCorporate: Boolean(a.is_corporate),
+          companyName: a.company_name || undefined,
+          taxOffice: a.tax_office || undefined,
+          packageId: a.package_id,
+          packageName: a.package_name,
+          duration: a.duration,
+          price: Number(a.price),
+          totalAmount: Number(a.price),
+          deliveryType: a.delivery_type,
+          address: a.address,
+          city: a.city,
+          district: a.district,
+          paymentMethod: method,
+          paymentStatus: payStatus,
+          notes: a.notes || undefined,
+          adminNotes: a.admin_notes || undefined,
+          status: a.status,
+          createdAt: a.created_at,
+          updatedAt: a.updated_at
+        };
+      });
     } catch (err) {
       console.error('getApplications error:', err);
       return null;
@@ -356,7 +393,22 @@ export const SupabaseService = {
   async addApplication(appData: Omit<Application, 'id' | 'trackingCode' | 'createdAt' | 'updatedAt' | 'status'>): Promise<Application | null> {
     try {
       const randomCode = 'EDF-' + Math.floor(10000 + Math.random() * 90000);
-      
+
+      // Safe normalization for Postgres enum delivery_type (ankara_yerinde, magaza, kargo, kurye)
+      let safeDeliveryType = 'ankara_yerinde';
+      const dLower = String(appData.deliveryType || '').toLowerCase();
+      if (dLower.includes('magaza') || dLower.includes('ofis') || dLower.includes('elden')) {
+        safeDeliveryType = 'magaza';
+      } else if (dLower.includes('kargo')) {
+        safeDeliveryType = 'kargo';
+      } else if (dLower.includes('kurye')) {
+        safeDeliveryType = 'kurye';
+      } else if (['ankara_yerinde', 'magaza', 'kargo', 'kurye'].includes(appData.deliveryType)) {
+        safeDeliveryType = appData.deliveryType;
+      } else {
+        safeDeliveryType = 'ankara_yerinde';
+      }
+
       const { data, error } = await supabase
         .from('applications')
         .insert({
@@ -372,7 +424,7 @@ export const SupabaseService = {
           package_name: appData.packageName,
           duration: appData.duration,
           price: appData.price,
-          delivery_type: appData.deliveryType,
+          delivery_type: safeDeliveryType,
           address: appData.address || 'Adres belirtilmedi',
           city: appData.city || 'ANKARA',
           district: appData.district || '',

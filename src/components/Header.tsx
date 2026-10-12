@@ -9,16 +9,21 @@ import {
   Moon,
   ArrowRight,
   Sparkles,
-  FileCheck2,
+  ShoppingBag,
+  Package,
   Clock,
-  MapPin
+  MapPin,
+  Lock
 } from 'lucide-react';
 import { SiteSettings } from '../types';
 
 interface HeaderProps {
   settings: SiteSettings;
   darkMode: boolean;
+  cartCount?: number;
+  cartTotal?: number;
   onToggleDarkMode: () => void;
+  onOpenCart: () => void;
   onOpenApply: () => void;
   onOpenTrack: () => void;
   onOpenAdmin: () => void;
@@ -27,7 +32,10 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   settings,
   darkMode,
+  cartCount = 0,
+  cartTotal = 0,
   onToggleDarkMode,
+  onOpenCart,
   onOpenApply,
   onOpenTrack,
   onOpenAdmin
@@ -52,7 +60,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const navLinks = [
     { name: 'Ana Sayfa', href: '#hero' },
-    { name: 'E-İmza Fiyatları', href: '#fiyatlar' },
+    { name: 'E-İmza Paketleri', href: '#fiyatlar' },
     { name: 'Neden Biz?', href: '#avantajlar' },
     { name: 'Kullanım Alanları', href: '#uyumluluk' },
     { name: 'Hakkımızda', href: '#hakkimizda' },
@@ -109,15 +117,34 @@ export const Header: React.FC<HeaderProps> = ({
               <span>{settings.phoneDisplay}</span>
             </a>
 
-            {/* Application Track Button */}
+            {/* Order Track Button */}
             {settings.headerShowTrack && (
               <button
                 onClick={onOpenTrack}
                 className="px-3.5 py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-850 dark:hover:bg-zinc-800 rounded-xl transition cursor-pointer"
               >
-                Başvuru Takip
+                Sipariş Takibi
               </button>
             )}
+
+            {/* Shopping Cart Button */}
+            <button
+              onClick={onOpenCart}
+              className="relative flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 border border-blue-200/70 dark:border-blue-800/80 text-blue-700 dark:text-blue-300 transition cursor-pointer"
+              aria-label="Sepeti Görüntüle"
+            >
+              <div className="relative">
+                <ShoppingBag className="w-4 h-4" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-2 -right-2.5 w-4 h-4 rounded-full bg-blue-600 text-white text-[9px] font-extrabold flex items-center justify-center animate-pulse">
+                    {cartCount}
+                  </span>
+                )}
+              </div>
+              <span className="text-xs font-bold">
+                {cartCount > 0 ? `${cartTotal.toLocaleString('tr-TR')} ₺` : 'Sepetim'}
+              </span>
+            </button>
 
             {/* Dark Mode Toggle */}
             <button
@@ -128,19 +155,32 @@ export const Header: React.FC<HeaderProps> = ({
               {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
             </button>
 
-            {/* Apply Action Button */}
+            {/* Buy Action Button */}
             {settings.headerShowApply && (
               <button
                 onClick={onOpenApply}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs active:scale-98 transition cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm active:scale-98 transition cursor-pointer"
               >
-                Hemen Başvur
+                Hemen Satın Al
               </button>
             )}
           </div>
 
-          {/* Mobile Hamburger Button */}
+          {/* Mobile Right Icons (Cart + Hamburger) */}
           <div className="flex md:hidden items-center gap-2">
+            <button
+              onClick={onOpenCart}
+              className="relative p-2 rounded-xl text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 transition cursor-pointer"
+              aria-label="Sepetim"
+            >
+              <ShoppingBag className="w-5 h-5" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-blue-600 text-white text-[9px] font-extrabold flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+
             <button
               onClick={() => setMobileMenuOpen(true)}
               className="p-2 rounded-xl text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
@@ -204,7 +244,7 @@ export const Header: React.FC<HeaderProps> = ({
                   }}
                   className="py-3 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold text-center shadow-sm active:scale-98 transition cursor-pointer"
                 >
-                  Hemen Başvur
+                  Hemen Satın Al
                 </button>
                 <button
                   onClick={() => {
@@ -213,7 +253,7 @@ export const Header: React.FC<HeaderProps> = ({
                   }}
                   className="py-3 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-semibold text-center transition cursor-pointer"
                 >
-                  Başvuru Takip
+                  Sipariş Takibi
                 </button>
               </div>
 

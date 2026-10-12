@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { STORAGE_KEYS, StorageService } from './services/storage';
 import { SupabaseService } from './services/supabaseService';
 import { supabase } from './services/supabase';
-import { Package, SiteSettings } from './types';
+import { Package, SiteSettings, CartItem, Order } from './types';
 import { AnnouncementBar } from './components/AnnouncementBar';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
@@ -14,12 +14,33 @@ import { AboutSection } from './components/AboutSection';
 import { FaqSection } from './components/FaqSection';
 import { ContactSection } from './components/ContactSection';
 import { Footer } from './components/Footer';
-import { ApplicationModal } from './components/ApplicationModal';
-import { TrackModal } from './components/TrackModal';
+import { CartDrawer } from './components/CartDrawer';
+import { CheckoutPage } from './pages/CheckoutPage';
+import { OrderTrackModal } from './components/OrderTrackModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { AdminLayout } from './admin/AdminLayout';
 import { AdminLogin } from './admin/AdminLogin';
 import { Phone, MessageSquare, Shield, ArrowUp } from 'lucide-react';
+
+import { LegalPage, LegalDocSlug, LEGAL_DOCS } from './pages/LegalPage';
+import { CookieBanner } from './components/CookieBanner';
+import { WelcomeInfoModal } from './components/WelcomeInfoModal';
+
+// Helper to match legal contract URLs
+const getLegalDocFromPath = (path: string, hash: string): LegalDocSlug | null => {
+  const p = (path.startsWith('/') ? path.slice(1) : path).toLowerCase();
+  const h = (hash.startsWith('#') ? hash.slice(1) : hash).toLowerCase();
+  const target = p || h;
+
+  if (target === 'mesafeli-satis-sozlesmesi' || target === 'mesafeli-satis' || target.includes('mesafeli')) return 'mesafeli-satis-sozlesmesi';
+  if (target === 'on-bilgilendirme-formu' || target === 'on-bilgilendirme' || target.includes('onbilgi')) return 'on-bilgilendirme-formu';
+  if (target === 'kvkk-aydinlatma-metni' || target === 'kvkk' || target.includes('kvkk')) return 'kvkk-aydinlatma-metni';
+  if (target === 'gizlilik-politikasi' || target === 'gizlilik-ve-guvenlik' || target === 'gizlilik' || target.includes('gizlilik')) return 'gizlilik-politikasi';
+  if (target === 'iptal-ve-iade-kosullari' || target === 'teslimat-ve-iade' || target === 'iade-kosullari' || target.includes('iade')) return 'iptal-ve-iade-kosullari';
+  if (target === 'kullanim-kosullari' || target === 'kullanim-sartlari' || target.includes('kullanim')) return 'kullanim-kosullari';
+  if (target === 'sozlesmeler' || target === 'yasal' || target === 'legal') return 'mesafeli-satis-sozlesmesi';
+  return null;
+};
 
 export function App() {
   // Theme state (Default to Light Theme on first visit)
@@ -33,16 +54,33 @@ export function App() {
     return false; // Always default to Light Theme
   });
 
-  // App mode: 'public' | 'admin'
-  const [viewMode, setViewMode] = useState<'public' | 'admin'>(() => {
+  // App mode: 'public' | 'admin' | 'checkout' | 'legal'
+  const [viewMode, setViewMode] = useState<'public' | 'admin' | 'checkout' | 'legal'>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
       if (path === '/admin' || path.startsWith('/admin/') || hash === '#admin' || hash.startsWith('#admin/')) {
         return 'admin';
       }
+      if (path === '/odeme' || path.startsWith('/odeme/') || path === '/checkout' || hash === '#odeme' || hash === '#checkout') {
+        return 'checkout';
+      }
+      const legalMatch = getLegalDocFromPath(path, hash);
+      if (legalMatch) {
+        return 'legal';
+      }
     }
     return 'public';
+  });
+
+  const [activeLegalSlug, setActiveLegalSlug] = useState<LegalDocSlug>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      const match = getLegalDocFromPath(path, hash);
+      if (match) return match;
+    }
+    return 'mesafeli-satis-sozlesmesi';
   });
 
   const navigateToAdmin = () => {
@@ -52,20 +90,49 @@ export function App() {
     setViewMode('admin');
   };
 
+  const navigateToCheckout = () => {
+    if (window.location.pathname !== '/odeme') {
+      window.history.pushState({}, '', '/odeme');
+    }
+    setViewMode('checkout');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navigateToLegal = (slug: LegalDocSlug = 'mesafeli-satis-sozlesmesi') => {
+    if (window.location.pathname !== `/${slug}`) {
+      window.history.pushState({}, '', `/${slug}`);
+    }
+    setActiveLegalSlug(slug);
+    setViewMode('legal');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const navigateToPublic = () => {
     if (window.location.pathname !== '/') {
       window.history.pushState({}, '', '/');
     }
     setViewMode('public');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Sync URL changes (e.g. typing /admin in URL bar, browser back/forward buttons)
+  // Sync URL changes (e.g. typing /admin, /odeme, /mesafeli-satis-sozlesmesi in URL bar, browser back/forward buttons)
   useEffect(() => {
     const handleUrlChange = () => {
       const path = window.location.pathname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
-      const isAdmin = path === '/admin' || path.startsWith('/admin/') || hash === '#admin' || hash.startsWith('#admin/');
-      setViewMode(isAdmin ? 'admin' : 'public');
+      if (path === '/admin' || path.startsWith('/admin/') || hash === '#admin' || hash.startsWith('#admin/')) {
+        setViewMode('admin');
+      } else if (path === '/odeme' || path.startsWith('/odeme/') || path === '/checkout' || hash === '#odeme' || hash === '#checkout') {
+        setViewMode('checkout');
+      } else {
+        const legalMatch = getLegalDocFromPath(path, hash);
+        if (legalMatch) {
+          setActiveLegalSlug(legalMatch);
+          setViewMode('legal');
+        } else {
+          setViewMode('public');
+        }
+      }
     };
 
     window.addEventListener('popstate', handleUrlChange);
@@ -83,11 +150,11 @@ export function App() {
   // Data states
   const [settings, setSettings] = useState<SiteSettings>(StorageService.getSettings());
   const [packages, setPackages] = useState<Package[]>(StorageService.getPackages());
+  const [cart, setCart] = useState<CartItem[]>(() => StorageService.getCart());
 
-  // Modals
-  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
-  const [isTrackModalOpen, setIsTrackModalOpen] = useState(false);
-  const [selectedPackageForApply, setSelectedPackageForApply] = useState<Package | null>(null);
+  // Modals & Drawers
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isOrderTrackOpen, setIsOrderTrackOpen] = useState(false);
 
   // Scroll to top button visibility
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -196,10 +263,12 @@ export function App() {
     const handleSync = () => {
       setSettings(StorageService.getSettings());
       setPackages(StorageService.getPackages());
+      setCart(StorageService.getCart());
     };
 
     window.addEventListener('edijital_settings_updated', handleSync);
     window.addEventListener('edijital_packages_updated', handleSync);
+    window.addEventListener('edijital_cart_updated', handleSync);
 
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 400);
@@ -210,24 +279,88 @@ export function App() {
       subscription.unsubscribe();
       window.removeEventListener('edijital_settings_updated', handleSync);
       window.removeEventListener('edijital_packages_updated', handleSync);
+      window.removeEventListener('edijital_cart_updated', handleSync);
       window.removeEventListener('scroll', handleScroll);
     };
   }, []);
 
   const toggleDarkMode = () => setDarkMode(prev => !prev);
 
-  const handleOpenApplyWithPackage = (pkg?: Package) => {
-    setSelectedPackageForApply(pkg || null);
-    setIsApplyModalOpen(true);
+  // Cart operations
+  const handleAddToCart = (pkg: Package) => {
+    StorageService.addToCart(pkg);
+    setCart(StorageService.getCart());
+    setIsCartOpen(true);
+  };
+
+  const handleUpdateQuantity = (pkgId: string, quantity: number) => {
+    StorageService.updateCartQuantity(pkgId, quantity);
+    setCart(StorageService.getCart());
+  };
+
+  const handleRemoveItem = (pkgId: string) => {
+    StorageService.removeFromCart(pkgId);
+    setCart(StorageService.getCart());
+  };
+
+  const handleClearCart = () => {
+    StorageService.clearCart();
+    setCart([]);
+  };
+
+  const handleProceedToCheckout = () => {
+    setIsCartOpen(false);
+    navigateToCheckout();
+  };
+
+  const handleNavigateToPricing = () => {
+    setIsCartOpen(false);
+    if (viewMode !== 'public') {
+      if (window.location.pathname !== '/') {
+        window.history.pushState({}, '', '/');
+      }
+      setViewMode('public');
+    }
+    setTimeout(() => {
+      const el = document.getElementById('fiyatlar');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 100);
+  };
+
+  const handleBuyNow = (pkg?: Package) => {
+    if (pkg) {
+      StorageService.addToCart(pkg);
+      setCart(StorageService.getCart());
+      setIsCartOpen(true);
+    } else {
+      const currentCart = StorageService.getCart();
+      if (currentCart.length > 0) {
+        setIsCartOpen(true);
+      } else {
+        const el = document.getElementById('fiyatlar');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          setIsCartOpen(true);
+        }
+      }
+    }
   };
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // ADMIN VIEW
+  // Total cart counts & sums
+  const cartTotalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const cartTotalPrice = cart.reduce((sum, item) => sum + (item.package.price * item.quantity), 0);
+
+  // =========================================================================
+  // 1. ADMIN VIEW
+  // =========================================================================
   if (viewMode === 'admin') {
-    // If checking auth state and we don't have a cached session, show smooth loader instead of login form flash
     if (isAuthChecking && !isAdminAuth) {
       return (
         <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-white px-4">
@@ -274,7 +407,82 @@ export function App() {
     );
   }
 
-  // PUBLIC WEBSITE VIEW
+  // =========================================================================
+  // 2. DEDICATED CHECKOUT / PAYMENT PAGE VIEW (/odeme)
+  // =========================================================================
+  if (viewMode === 'checkout') {
+    return (
+      <>
+        <CheckoutPage
+          settings={settings}
+          cart={cart}
+          darkMode={darkMode}
+          onUpdateQuantity={handleUpdateQuantity}
+          onRemoveItem={handleRemoveItem}
+          onClearCart={handleClearCart}
+          onBackToHome={navigateToPublic}
+          onNavigateToLegal={navigateToLegal}
+          onNavigateToTrack={(code) => {
+            navigateToPublic();
+            setIsOrderTrackOpen(true);
+          }}
+        />
+        <CookieBanner onNavigateLegal={navigateToLegal} />
+      </>
+    );
+  }
+
+  // =========================================================================
+  // 3. DEDICATED LEGAL & CONTRACTS PAGE VIEW (/mesafeli-satis-sozlesmesi, /on-bilgilendirme-formu, /kvkk-aydinlatma-metni, etc.)
+  // =========================================================================
+  if (viewMode === 'legal') {
+    return (
+      <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-black text-slate-900 dark:text-zinc-100 transition-colors">
+        <LegalPage
+          settings={settings}
+          darkMode={darkMode}
+          cartCount={cartTotalItems}
+          cartTotal={cartTotalPrice}
+          onToggleDarkMode={toggleDarkMode}
+          onOpenCart={() => setIsCartOpen(true)}
+          onOpenApply={() => handleBuyNow()}
+          onOpenTrack={() => setIsOrderTrackOpen(true)}
+          onOpenAdmin={navigateToAdmin}
+          activeSlug={activeLegalSlug}
+          onNavigateToDoc={navigateToLegal}
+          onBackToHome={navigateToPublic}
+          onNavigateToCheckout={navigateToCheckout}
+        />
+
+        {/* Shopping Cart Drawer */}
+        <CartDrawer
+          isOpen={isCartOpen}
+          onClose={() => setIsCartOpen(false)}
+          cart={cart}
+          onUpdateQuantity={handleUpdateQuantity}
+          onRemoveItem={handleRemoveItem}
+          onClearCart={handleClearCart}
+          onProceedToCheckout={handleProceedToCheckout}
+          onNavigateToPricing={handleNavigateToPricing}
+          settings={settings}
+        />
+
+        {/* Real-time Order Tracking Modal */}
+        <OrderTrackModal
+          isOpen={isOrderTrackOpen}
+          onClose={() => setIsOrderTrackOpen(false)}
+          settings={settings}
+        />
+
+        {/* KVKK & GDPR Cookie Consent Banner */}
+        <CookieBanner onNavigateLegal={navigateToLegal} />
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // 4. MAIN PUBLIC STOREFRONT VIEW (/)
+  // =========================================================================
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-black text-gray-900 dark:text-zinc-100 transition-colors">
 
@@ -283,16 +491,19 @@ export function App() {
         {(settings.sections?.announcement !== false && settings.announcementActive) && (
           <AnnouncementBar
             settings={settings}
-            onOpenApply={() => handleOpenApplyWithPackage()}
+            onOpenApply={() => handleBuyNow()}
           />
         )}
 
         <Header
           settings={settings}
           darkMode={darkMode}
+          cartCount={cartTotalItems}
+          cartTotal={cartTotalPrice}
           onToggleDarkMode={toggleDarkMode}
-          onOpenApply={() => handleOpenApplyWithPackage()}
-          onOpenTrack={() => setIsTrackModalOpen(true)}
+          onOpenCart={() => setIsCartOpen(true)}
+          onOpenApply={() => handleBuyNow()}
+          onOpenTrack={() => setIsOrderTrackOpen(true)}
           onOpenAdmin={navigateToAdmin}
         />
       </div>
@@ -310,9 +521,9 @@ export function App() {
           <Hero
             settings={settings}
             packages={packages}
-            onOpenApply={(pkg) => handleOpenApplyWithPackage(pkg)}
+            onOpenApply={(pkg) => handleBuyNow(pkg)}
             onOpenTrack={(code) => {
-              setIsTrackModalOpen(true);
+              setIsOrderTrackOpen(true);
             }}
           />
         )}
@@ -320,7 +531,7 @@ export function App() {
         {settings.sections?.features !== false && (
           <FeaturesBento
             settings={settings}
-            onOpenApply={() => handleOpenApplyWithPackage()}
+            onOpenApply={() => handleBuyNow()}
           />
         )}
 
@@ -328,6 +539,7 @@ export function App() {
           <QuickFormSection
             settings={settings}
             packages={packages}
+            onQuickCheckout={(pkg) => handleBuyNow(pkg)}
           />
         )}
 
@@ -335,7 +547,8 @@ export function App() {
           <PricingSection
             packages={packages}
             settings={settings}
-            onSelectPackage={(pkg) => handleOpenApplyWithPackage(pkg)}
+            onSelectPackage={(pkg) => handleBuyNow(pkg)}
+            onAddToCart={(pkg) => handleAddToCart(pkg)}
           />
         )}
 
@@ -346,7 +559,7 @@ export function App() {
         {settings.sections?.about !== false && (
           <AboutSection
             settings={settings}
-            onOpenApply={() => handleOpenApplyWithPackage()}
+            onOpenApply={() => handleBuyNow()}
           />
         )}
 
@@ -363,8 +576,9 @@ export function App() {
       <Footer
         settings={settings}
         onOpenAdmin={() => setViewMode('admin')}
-        onOpenTrack={() => setIsTrackModalOpen(true)}
-        onOpenApply={() => handleOpenApplyWithPackage()}
+        onOpenTrack={() => setIsOrderTrackOpen(true)}
+        onOpenApply={() => handleBuyNow()}
+        onNavigateToLegal={navigateToLegal}
       />
 
       {/* Desktop Floating Action Buttons (Hidden on Mobile) */}
@@ -373,7 +587,7 @@ export function App() {
         {showScrollTop && (
           <button
             onClick={scrollToTop}
-            className="pointer-events-auto w-11 h-11 rounded-full bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-200 border border-gray-200 dark:border-zinc-700 shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all"
+            className="pointer-events-auto w-11 h-11 rounded-full bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-200 border border-gray-200 dark:border-zinc-700 shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all cursor-pointer"
             title="Yukarı Çık"
           >
             <ArrowUp className="w-5 h-5" />
@@ -385,38 +599,53 @@ export function App() {
           href={`https://wa.me/${settings.whatsapp}?text=Merhaba,%20e-imza%20hakkinda%20bilgi%20ve%20fiyat%20almak%20istiyorum.`}
           target="_blank"
           rel="noopener noreferrer"
-          className="pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-full bg-green-500 hover:bg-green-600 text-white shadow-xl shadow-green-500/30 hover:scale-105 active:scale-95 transition-all group"
+          className="pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-full bg-green-500 hover:bg-green-600 text-white shadow-xl shadow-green-500/30 hover:scale-105 active:scale-95 transition-all group cursor-pointer"
           title="WhatsApp İle Danışın"
         >
           <MessageSquare className="w-5 h-5 fill-current" />
           <span className="text-xs font-bold">WhatsApp Destek</span>
         </a>
-
-
       </div>
 
       {/* Mobile Bottom Navigation Bar with Quick Contact Popup */}
       <MobileBottomNav
         settings={settings}
-        onOpenApply={() => handleOpenApplyWithPackage()}
-        onOpenTrack={() => setIsTrackModalOpen(true)}
+        cartCount={cartTotalItems}
+        onOpenCart={() => setIsCartOpen(true)}
+        onOpenApply={() => handleBuyNow()}
+        onOpenTrack={() => setIsOrderTrackOpen(true)}
       />
 
-      {/* Application Modal Wizard */}
-      <ApplicationModal
-        isOpen={isApplyModalOpen}
-        onClose={() => setIsApplyModalOpen(false)}
-        selectedPackage={selectedPackageForApply}
-        packages={packages}
+      {/* Shopping Cart Drawer (Opens from Right) */}
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        cart={cart}
+        onUpdateQuantity={handleUpdateQuantity}
+        onRemoveItem={handleRemoveItem}
+        onClearCart={handleClearCart}
+        onProceedToCheckout={handleProceedToCheckout}
+        onNavigateToPricing={handleNavigateToPricing}
         settings={settings}
       />
 
-      {/* Tracking Modal */}
-      <TrackModal
-        isOpen={isTrackModalOpen}
-        onClose={() => setIsTrackModalOpen(false)}
+      {/* Real-time Order Tracking Modal */}
+      <OrderTrackModal
+        isOpen={isOrderTrackOpen}
+        onClose={() => setIsOrderTrackOpen(false)}
         settings={settings}
       />
+
+      {/* KVKK & GDPR Cookie Consent Banner */}
+      <CookieBanner onNavigateLegal={navigateToLegal} />
+
+      {/* Welcome E-Signature Info Modal (0545 960 33 03) */}
+      {viewMode === 'public' && (
+        <WelcomeInfoModal
+          settings={settings}
+          onExplorePackages={handleNavigateToPricing}
+        />
+      )}
 
     </div>
   );

@@ -1,27 +1,30 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Phone, Mail, MapPin, Lock, ShieldCheck } from 'lucide-react';
 import { SiteSettings } from '../types';
-import { LegalModal, LegalDocType } from './LegalModal';
+import { LegalDocSlug } from '../pages/LegalPage';
 
 interface FooterProps {
   settings: SiteSettings;
   onOpenAdmin: () => void;
   onOpenTrack: () => void;
   onOpenApply: () => void;
+  onNavigateToLegal?: (slug: LegalDocSlug) => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({
   settings,
   onOpenAdmin,
   onOpenTrack,
-  onOpenApply
+  onOpenApply,
+  onNavigateToLegal
 }) => {
-  const [legalModalOpen, setLegalModalOpen] = useState(false);
-  const [activeLegalDoc, setActiveLegalDoc] = useState<LegalDocType>('kvkk');
-
-  const handleOpenLegal = (doc: LegalDocType) => {
-    setActiveLegalDoc(doc);
-    setLegalModalOpen(true);
+  const handleLegalClick = (e: React.MouseEvent, slug: LegalDocSlug) => {
+    e.preventDefault();
+    if (onNavigateToLegal) {
+      onNavigateToLegal(slug);
+    } else {
+      window.location.href = `/${slug}`;
+    }
   };
 
   return (
@@ -120,25 +123,23 @@ export const Footer: React.FC<FooterProps> = ({
             </ul>
           </div>
 
-          {/* Admin and Legal */}
+          {/* Legal & Compliance Info */}
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-white mb-4">
-              Yönetim & Kurumsal
+              Güvenlik & Yasal Bilgi
             </h4>
-            <ul className="space-y-2 text-xs">
-              <li>
-                <button
-                  onClick={onOpenAdmin}
-                  className="flex items-center gap-1.5 font-bold text-zinc-800 dark:text-zinc-200 hover:text-blue-600 cursor-pointer"
-                >
-                  <Lock className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Yönetici Paneli Girişi</span>
-                </button>
-              </li>
-              <li className="text-[11px] text-zinc-500 pt-2 leading-relaxed">
+            <div className="space-y-3 text-xs text-zinc-500 dark:text-zinc-400">
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold">
+                <ShieldCheck className="w-4 h-4 shrink-0" />
+                <span>256-Bit SSL & 3D Secure Koruması</span>
+              </div>
+              <p className="text-[11px] leading-relaxed">
                 5070 Sayılı Elektronik İmza Kanunu kapsamında üretilen e-imzalar ıslak imza ile aynı hukuki geçerliliğe sahiptir.
-              </li>
-            </ul>
+              </p>
+              <div className="p-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800/60 text-[10px] font-medium text-zinc-600 dark:text-zinc-300">
+                ArkSigner Yetkili İş Ortaklığı ile güvenli, hızlı ve anında teslimat.
+              </div>
+            </div>
           </div>
 
         </div>
@@ -149,47 +150,51 @@ export const Footer: React.FC<FooterProps> = ({
             {settings.copyrightText || `Telif Hakkı © ${new Date().getFullYear()} ${settings.companyName} - Tüm Hakları Saklıdır.`}
           </div>
           
-          {/* Legal / Contract Links */}
+          {/* Legal / Contract Links - Standalone Pages */}
           <div className="flex flex-wrap items-center justify-center sm:justify-end gap-x-3.5 gap-y-2 text-xs">
-            <button
-              onClick={() => handleOpenLegal('kvkk')}
-              className="hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer"
-            >
-              KVKK Aydınlatma Metni
-            </button>
-            <span className="text-zinc-300 dark:text-zinc-750 hidden sm:inline">•</span>
-            <button
-              onClick={() => handleOpenLegal('mesafeli-satis')}
+            <a
+              href="/mesafeli-satis-sozlesmesi"
+              onClick={(e) => handleLegalClick(e, 'mesafeli-satis-sozlesmesi')}
               className="hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer"
             >
               Mesafeli Satış Sözleşmesi
-            </button>
-            <span className="text-zinc-300 dark:text-zinc-750 hidden sm:inline">•</span>
-            <button
-              onClick={() => handleOpenLegal('gizlilik')}
+            </a>
+            <span className="text-zinc-300 dark:text-zinc-700 hidden sm:inline">•</span>
+            <a
+              href="/on-bilgilendirme-formu"
+              onClick={(e) => handleLegalClick(e, 'on-bilgilendirme-formu')}
               className="hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer"
             >
-              Gizlilik & Güvenlik
-            </button>
-            <span className="text-zinc-300 dark:text-zinc-750 hidden sm:inline">•</span>
-            <button
-              onClick={() => handleOpenLegal('teslimat-iade')}
+              Ön Bilgilendirme Formu
+            </a>
+            <span className="text-zinc-300 dark:text-zinc-700 hidden sm:inline">•</span>
+            <a
+              href="/kvkk-aydinlatma-metni"
+              onClick={(e) => handleLegalClick(e, 'kvkk-aydinlatma-metni')}
               className="hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer"
             >
-              Teslimat & İade
-            </button>
+              KVKK Aydınlatma Metni
+            </a>
+            <span className="text-zinc-300 dark:text-zinc-700 hidden sm:inline">•</span>
+            <a
+              href="/gizlilik-politikasi"
+              onClick={(e) => handleLegalClick(e, 'gizlilik-politikasi')}
+              className="hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer"
+            >
+              Gizlilik ve Güvenlik
+            </a>
+            <span className="text-zinc-300 dark:text-zinc-700 hidden sm:inline">•</span>
+            <a
+              href="/iptal-ve-iade-kosullari"
+              onClick={(e) => handleLegalClick(e, 'iptal-ve-iade-kosullari')}
+              className="hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer"
+            >
+              Teslimat, İptal ve İade
+            </a>
           </div>
         </div>
 
       </div>
-
-      {/* Legal Contract Policy Modal */}
-      <LegalModal
-        isOpen={legalModalOpen}
-        onClose={() => setLegalModalOpen(false)}
-        settings={settings}
-        initialDoc={activeLegalDoc}
-      />
     </footer>
   );
 };

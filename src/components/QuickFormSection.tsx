@@ -4,7 +4,11 @@ import {
   Phone,
   Check,
   CheckSquare,
-  ChevronDown
+  ChevronDown,
+  ShoppingBag,
+  Zap,
+  Lock,
+  ArrowRight
 } from 'lucide-react';
 import { SiteSettings, Package, DeliveryType, DeliveryOptionItem } from '../types';
 import { StorageService, DEFAULT_DELIVERY_OPTIONS } from '../services/storage';
@@ -12,9 +16,10 @@ import { StorageService, DEFAULT_DELIVERY_OPTIONS } from '../services/storage';
 interface QuickFormSectionProps {
   settings: SiteSettings;
   packages: Package[];
+  onQuickCheckout?: (pkg: Package) => void;
 }
 
-export const QuickFormSection: React.FC<QuickFormSectionProps> = ({ settings, packages }) => {
+export const QuickFormSection: React.FC<QuickFormSectionProps> = ({ settings, packages, onQuickCheckout }) => {
   const activeDeliveryOptions = (
     settings.deliveryOptions && settings.deliveryOptions.length > 0
       ? settings.deliveryOptions
@@ -27,7 +32,7 @@ export const QuickFormSection: React.FC<QuickFormSectionProps> = ({ settings, pa
     packages.find(p => p.popular)?.id || packages[0]?.id || ''
   );
   const [formDelivery, setFormDelivery] = useState<string>(
-    activeDeliveryOptions[0]?.title || 'Ankara Adreste Yerinde Teslim & Kurulum'
+    activeDeliveryOptions[0]?.title || 'Hızlı Kargo ile Adrese Teslimat'
   );
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
@@ -66,7 +71,7 @@ export const QuickFormSection: React.FC<QuickFormSectionProps> = ({ settings, pa
   const handleQuickFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 1. Honeypot check (Bots fill hidden fields)
+    // Honeypot check
     if (honeypot.trim() !== '') {
       setFormLoading(true);
       setTimeout(() => {
@@ -79,14 +84,20 @@ export const QuickFormSection: React.FC<QuickFormSectionProps> = ({ settings, pa
     const cleanDigits = formPhone.replace(/\D/g, '');
     if (!formName.trim() || cleanDigits.length < 10) return;
 
+    const targetPkg = packages.find(p => p.id === selectedPkgId) || packages[0];
+
+    // If onQuickCheckout handler is available, trigger it
+    if (onQuickCheckout && targetPkg) {
+      onQuickCheckout(targetPkg);
+      return;
+    }
+
     setFormLoading(true);
     setTimeout(() => {
-      // Find matching package
-      const targetPkg = packages.find(p => p.id === selectedPkgId) || packages[0];
       const selectedDeliveryOpt = activeDeliveryOptions.find(d => d.title === formDelivery);
       const deliveryTitle = selectedDeliveryOpt ? selectedDeliveryOpt.title : formDelivery;
 
-      const app = StorageService.addApplication({
+      const order = StorageService.addOrder({
         fullName: formName.trim(),
         tcVkn: 'Belirtilmedi',
         phone: formPhone.trim(),
@@ -96,15 +107,19 @@ export const QuickFormSection: React.FC<QuickFormSectionProps> = ({ settings, pa
         packageName: targetPkg ? targetPkg.name : 'E-İmza Paketi',
         duration: targetPkg ? targetPkg.duration : '1 Yıl',
         price: targetPkg ? targetPkg.price : 2450,
-        deliveryType: deliveryTitle,
-        address: 'Hızlı Başvuru (Adres belirtilmedi)',
+        totalAmount: targetPkg ? targetPkg.price : 2450,
+        deliveryType: (selectedDeliveryOpt?.type as DeliveryType) || 'ankara_yerinde',
+        deliveryTitle,
+        address: 'Hızlı Sipariş (Adres belirtilmedi)',
         city: 'ANKARA',
         district: '',
-        notes: ''
+        paymentMethod: 'cash_on_delivery',
+        paymentStatus: 'kapida_odeme',
+        notes: `Hızlı Sipariş (${deliveryTitle})`
       });
 
       setFormLoading(false);
-      setCreatedTrackingCode(app.trackingCode);
+      setCreatedTrackingCode(order.orderNumber || order.trackingCode || '');
       setFormSubmitted(true);
       setFormName('');
       setFormPhone('');
@@ -302,14 +317,14 @@ export const QuickFormSection: React.FC<QuickFormSectionProps> = ({ settings, pa
                   <button
                     type="submit"
                     disabled={formLoading}
-                    className="w-full py-3.5 rounded-xl bg-[#0b9356] hover:bg-[#097b48] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-md transition active:scale-[0.99] cursor-pointer mt-2"
+                    className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-md transition active:scale-[0.99] cursor-pointer mt-2"
                   >
                     {formLoading ? (
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     ) : (
                       <>
-                        <CheckSquare className="w-4 h-4 stroke-[2.5]" />
-                        <span>E-İMZA BAŞVUR</span>
+                        <ShoppingBag className="w-4 h-4 stroke-[2.5]" />
+                        <span>SEPETE EKLE & SİPARİŞ VER</span>
                       </>
                     )}
                   </button>

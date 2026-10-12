@@ -99,18 +99,16 @@ export const Hero: React.FC<HeroProps> = ({ settings, packages, onOpenApply }) =
                 onClick={() => onOpenApply()}
                 className="px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition active:scale-98 cursor-pointer whitespace-nowrap shrink-0"
               >
-                <span>{settings.heroButtonText || 'Hemen E-İmza Başvurusu'}</span>
+                <span>{settings.heroButtonText || 'Hemen E-İmza Satın Al'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
-
-
 
               <a
                 href="#fiyatlar"
                 className="px-4 sm:px-4.5 py-3 sm:py-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 text-xs sm:text-sm font-semibold border border-slate-200 dark:border-zinc-700 flex items-center justify-center gap-2 transition active:scale-98 shadow-xs whitespace-nowrap shrink-0"
               >
                 <PackageIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                <span>{settings.heroSecondaryButtonText || 'Paket Fiyatlarını Gör'}</span>
+                <span>{settings.heroSecondaryButtonText || 'Paketleri & Fiyatları Gör'}</span>
               </a>
             </div>
 

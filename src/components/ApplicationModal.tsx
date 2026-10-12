@@ -98,11 +98,11 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
         packageName: currentPkg.name,
         duration: currentPkg.duration,
         price: currentPkg.price,
-        deliveryType: deliveryTitle,
+        deliveryType: (selectedOption?.type as DeliveryType) || 'ankara_yerinde',
         address: address.trim() || 'Adres belirtilmedi',
         city: 'ANKARA',
         district: district.trim(),
-        notes: notes.trim()
+        notes: notes.trim() ? `${deliveryTitle} - ${notes.trim()}` : deliveryTitle
       });
 
       setLoading(false);

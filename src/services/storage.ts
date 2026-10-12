@@ -1,9 +1,24 @@
-import { Application, Package, ContactMessage, SiteSettings, ActivityLog, DeliveryOptionItem, DeliveryType } from '../types';
+import { 
+  Order, 
+  Application, 
+  CartItem, 
+  Package, 
+  ContactMessage, 
+  SiteSettings, 
+  ActivityLog, 
+  DeliveryOptionItem, 
+  DeliveryType,
+  OrderStatus,
+  PaymentStatus,
+  PaymentMethod
+} from '../types';
 import { SupabaseService } from './supabaseService';
 import { supabase } from './supabase';
 
 export const STORAGE_KEYS = {
-  APPLICATIONS: 'edijital_applications_v7',
+  APPLICATIONS: 'edijital_orders_v8',
+  ORDERS: 'edijital_orders_v8',
+  CART: 'edijital_cart_v8',
   PACKAGES: 'edijital_packages_v7',
   MESSAGES: 'edijital_messages_v7',
   SETTINGS: 'edijital_settings_v7',
@@ -21,7 +36,7 @@ try {
     bc = new BroadcastChannel('edijital_sync_channel');
     bc.onmessage = (event) => {
       if (event.data && event.data.type) {
-        window.dispatchEvent(new Event(event.data.type));
+        window.dispatchEvent(new CustomEvent(event.data.type, { detail: event.data.payload }));
       }
     };
   }
@@ -29,11 +44,11 @@ try {
   // ignore
 }
 
-export const notifyUpdated = (eventName: string) => {
-  window.dispatchEvent(new Event(eventName));
+export const notifyUpdated = (eventName: string, payload?: any) => {
+  window.dispatchEvent(new CustomEvent(eventName, { detail: payload }));
   if (bc) {
     try {
-      bc.postMessage({ type: eventName });
+      bc.postMessage({ type: eventName, payload });
     } catch {
       // ignore
     }
@@ -42,27 +57,11 @@ export const notifyUpdated = (eventName: string) => {
 
 export const DEFAULT_DELIVERY_OPTIONS: DeliveryOptionItem[] = [
   {
-    id: 'del-1',
-    title: 'Ankara Adreste Yerinde Teslim & Kurulum',
-    description: 'Adresinize gelip kimlik doğrulamanızı ve kurulumunuzu yapıyoruz.',
-    type: 'ankara_yerinde',
-    badge: 'Tavsiye Edilen',
-    active: true
-  },
-  {
-    id: 'del-2',
-    title: 'Ostim Mağazadan 15 Dk Elden Teslim',
-    description: 'Ostim ofisimizden hemen 15 dakikada elden teslim alın.',
-    type: 'magaza',
-    badge: 'Hızlı Teslimat',
-    active: true
-  },
-  {
     id: 'del-3',
     title: 'Hızlı Kargo ile Adrese Teslimat',
-    description: 'Tüm Türkiye geneli güvenli kurye / kargo ile adrese teslim.',
+    description: 'Tüm Türkiye geneline güvenli, sigortalı kurye ve kargo ile adrese teslim.',
     type: 'kargo',
-    badge: 'Türkiye Geneli',
+    badge: 'Tüm Türkiye',
     active: true
   }
 ];
@@ -82,6 +81,18 @@ const DEFAULT_SETTINGS: SiteSettings = {
   workingDays: 'Pazartesi - Cuma',
   mapLocationQuery: '39.969709, 32.744914',
   mapEmbedUrl: '',
+  bankName: 'Ziraat Bankası',
+  bankBranch: 'Ostim Şubesi (Kod: 1042)',
+  iban: 'TR12 0006 2000 0001 2345 6789 01',
+  ibanRecipient: 'E-DİJİTAL FİNANS DANIŞMANLIK LİMİTED ŞİRKETİ',
+  bankTransferNote: 'Lütfen Havale/EFT açıklama kısmına sipariş takip numaranızı (Örn: EDF-12345) yazınız.',
+  bankTransferActive: true,
+  creditCardActive: true,
+  posProvider: '256-Bit SSL & 3D Secure Sanal POS',
+  posDescription: 'Tüm Visa, MasterCard ve Troy kartlarla güvenli anında ödeme.',
+  require3dSecure: true,
+  cashOnDeliveryActive: false,
+  cashOnDeliveryNote: 'Teslimat anında nakit veya temassız pos ile ödeme.',
   deliveryOptions: DEFAULT_DELIVERY_OPTIONS,
   heroBadge: 'Ankara İçi 15 Dakikada Adrese / Mağazada Teslimat',
   heroTitle: 'Hızlı, Güvenilir ve Resmi E-İmza Hizmeti',
@@ -258,11 +269,15 @@ export const StorageService = {
           ...DEFAULT_SETTINGS.theme,
           ...(parsed.theme || {})
         },
-        deliveryOptions: (parsed.deliveryOptions && parsed.deliveryOptions.length > 0)
-          ? parsed.deliveryOptions
-          : (parsed.theme?.deliveryOptions && parsed.theme.deliveryOptions.length > 0)
-            ? parsed.theme.deliveryOptions
-            : DEFAULT_DELIVERY_OPTIONS,
+        deliveryOptions: (() => {
+          const raw = (parsed.deliveryOptions && parsed.deliveryOptions.length > 0)
+            ? parsed.deliveryOptions
+            : (parsed.theme?.deliveryOptions && parsed.theme.deliveryOptions.length > 0)
+              ? parsed.theme.deliveryOptions
+              : DEFAULT_DELIVERY_OPTIONS;
+          const filtered = raw.filter((d: any) => d.id !== 'del-1' && d.id !== 'del-2' && !d.title?.includes('Ostim') && !d.title?.includes('Ankara Adreste'));
+          return filtered.length > 0 ? filtered : DEFAULT_DELIVERY_OPTIONS;
+        })(),
         faqs: parsed.faqs && parsed.faqs.length > 0 ? parsed.faqs : DEFAULT_SETTINGS.faqs
       };
     } catch {
@@ -337,81 +352,277 @@ export const StorageService = {
   },
 
   // ==========================================
-  // APPLICATIONS
+  // SHOPPING CART (SEPET)
   // ==========================================
-  getApplications(): Application[] {
-    const data = localStorage.getItem(STORAGE_KEYS.APPLICATIONS);
-    if (!data) {
-      return [];
-    }
+  getCart(): import('../types').CartItem[] {
     try {
-      const list: Application[] = JSON.parse(data);
-      return list.map(a => ({
-        ...a,
-        district: (a.district === 'Etimesgut' || a.district === 'Etimesgut / Eryaman' || a.district === 'Eryaman / Etimesgut') ? '' : a.district
-      }));
+      const data = localStorage.getItem(STORAGE_KEYS.CART);
+      if (!data) return [];
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
     }
   },
 
-  addApplication(appData: Omit<Application, 'id' | 'trackingCode' | 'createdAt' | 'updatedAt' | 'status'>): Application {
-    const apps = this.getApplications();
+  saveCart(items: import('../types').CartItem[]): void {
+    localStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(items));
+    notifyUpdated('edijital_cart_updated');
+  },
+
+  addToCart(pkg: Package, quantity: number = 1): import('../types').CartItem[] {
+    const cart = this.getCart();
+    const existingIndex = cart.findIndex(item => item.package.id === pkg.id);
+    if (existingIndex > -1) {
+      cart[existingIndex].quantity += quantity;
+    } else {
+      cart.push({ package: pkg, quantity: Math.max(1, quantity) });
+    }
+    this.saveCart(cart);
+    return cart;
+  },
+
+  updateCartQuantity(pkgId: string, quantity: number): import('../types').CartItem[] {
+    let cart = this.getCart();
+    if (quantity <= 0) {
+      cart = cart.filter(item => item.package.id !== pkgId);
+    } else {
+      const item = cart.find(i => i.package.id === pkgId);
+      if (item) {
+        item.quantity = quantity;
+      }
+    }
+    this.saveCart(cart);
+    return cart;
+  },
+
+  removeFromCart(pkgId: string): import('../types').CartItem[] {
+    const cart = this.getCart().filter(item => item.package.id !== pkgId);
+    this.saveCart(cart);
+    return cart;
+  },
+
+  clearCart(): void {
+    this.saveCart([]);
+  },
+
+  getCartCount(): number {
+    return this.getCart().reduce((sum, item) => sum + item.quantity, 0);
+  },
+
+  getCartTotal(): number {
+    return this.getCart().reduce((sum, item) => sum + (item.package.price * item.quantity), 0);
+  },
+
+  // ==========================================
+  // ORDERS (ONLINE SİPARİŞLER)
+  // ==========================================
+  getOrders(): Order[] {
+    const data = localStorage.getItem(STORAGE_KEYS.ORDERS);
+    if (!data) {
+      return [];
+    }
+    try {
+      const list: Order[] = JSON.parse(data);
+      return list.map(a => {
+        const notesLower = String(a.notes || '').toLowerCase();
+        let method: PaymentMethod = 'credit_card';
+        if (a.paymentMethod === 'bank_transfer' || notesLower.includes('bank_transfer') || notesLower.includes('havale') || notesLower.includes('eft')) {
+          method = 'bank_transfer';
+        } else if (a.paymentMethod === 'cash_on_delivery' || notesLower.includes('cash_on_delivery') || notesLower.includes('kapıda') || notesLower.includes('kapida')) {
+          method = 'cash_on_delivery';
+        } else if (a.paymentMethod === 'credit_card') {
+          method = 'credit_card';
+        }
+
+        let payStatus: PaymentStatus = 'odendi';
+        if (a.paymentStatus) {
+          payStatus = a.paymentStatus;
+        } else if (method === 'bank_transfer' || notesLower.includes('bekliyor')) {
+          payStatus = 'havale_bekleniyor';
+        } else if (method === 'cash_on_delivery') {
+          payStatus = 'kapida_odeme';
+        }
+
+        return {
+          ...a,
+          orderNumber: a.orderNumber || a.trackingCode || `EDF-${Math.floor(10000 + Math.random() * 90000)}`,
+          trackingCode: a.trackingCode || a.orderNumber || `EDF-${Math.floor(10000 + Math.random() * 90000)}`,
+          quantity: a.quantity || 1,
+          totalAmount: a.totalAmount || a.price || 0,
+          paymentMethod: method,
+          paymentStatus: payStatus,
+          district: (a.district === 'Etimesgut' || a.district === 'Etimesgut / Eryaman' || a.district === 'Eryaman / Etimesgut') ? '' : a.district
+        };
+      });
+    } catch {
+      return [];
+    }
+  },
+
+  getApplications(): Application[] {
+    return this.getOrders();
+  },
+
+  addOrder(orderData: {
+    fullName: string;
+    tcVkn: string;
+    phone: string;
+    email?: string;
+    isCorporate?: boolean;
+    companyName?: string;
+    taxOffice?: string;
+    packageId?: string;
+    packageName?: string;
+    duration?: string;
+    price?: number;
+    quantity?: number;
+    totalAmount?: number;
+    items?: import('../types').CartItem[];
+    deliveryType?: DeliveryType;
+    deliveryTitle?: string;
+    address?: string;
+    city?: string;
+    district?: string;
+    paymentMethod?: import('../types').PaymentMethod;
+    paymentStatus?: import('../types').PaymentStatus;
+    cardLast4?: string;
+    notes?: string;
+    signedContracts?: import('../types').SignedLegalContract[];
+    legalAgreedAt?: string;
+  }): Order {
+    const orders = this.getOrders();
     const randomCode = 'EDF-' + Math.floor(10000 + Math.random() * 90000);
-    const newApp: Application = {
-      ...appData,
-      id: `APP-${1000 + apps.length + 1}`,
+    
+    const primaryItem = orderData.items?.[0];
+    const pkgName = orderData.packageName || (orderData.items && orderData.items.length > 0 
+      ? orderData.items.map(i => `${i.package.name} (x${i.quantity})`).join(', ') 
+      : 'E-İmza Paketi');
+    const pkgId = orderData.packageId || primaryItem?.package.id || 'pkg-1-yil';
+    const duration = orderData.duration || primaryItem?.package.duration || '1 Yıl';
+    const total = orderData.totalAmount || orderData.price || 0;
+
+    const newOrder: Order = {
+      id: `ORD-${1000 + orders.length + 1}`,
+      orderNumber: randomCode,
       trackingCode: randomCode,
+      fullName: orderData.fullName,
+      tcVkn: orderData.tcVkn,
+      phone: orderData.phone,
+      email: orderData.email || '',
+      isCorporate: Boolean(orderData.isCorporate),
+      companyName: orderData.companyName,
+      taxOffice: orderData.taxOffice,
+      packageId: pkgId,
+      packageName: pkgName,
+      duration: duration,
+      price: total,
+      quantity: orderData.quantity || 1,
+      totalAmount: total,
+      items: orderData.items || [],
+      deliveryType: orderData.deliveryType || 'ankara_yerinde',
+      deliveryTitle: orderData.deliveryTitle,
+      address: orderData.address || 'Adres belirtilmedi',
+      city: orderData.city || 'ANKARA',
+      district: orderData.district || '',
+      paymentMethod: orderData.paymentMethod || 'credit_card',
+      paymentStatus: orderData.paymentStatus || 'odendi',
+      cardLast4: orderData.cardLast4,
+      notes: orderData.notes,
+      signedContracts: orderData.signedContracts,
+      legalAgreedAt: orderData.legalAgreedAt || (orderData.signedContracts ? new Date().toISOString() : undefined),
       status: 'yeni',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    apps.unshift(newApp);
-    localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(apps));
-    this.addLog('Yeni Başvuru', `${newApp.fullName} (${newApp.packageName} - ${newApp.trackingCode})`, 'Müşteri');
+
+    orders.unshift(newOrder);
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+    
+    const paymentLabel = 
+      newOrder.paymentMethod === 'credit_card' ? 'Kredi Kartı (Ödendi)' :
+      newOrder.paymentMethod === 'bank_transfer' ? 'Havale/EFT (Bekliyor)' : 'Kapıda Ödeme';
+
+    this.addLog('Yeni Online Sipariş', `${newOrder.fullName} (${newOrder.packageName} - ${newOrder.totalAmount} ₺ - ${paymentLabel})`, 'Müşteri');
+    notifyUpdated('edijital_new_order_placed', newOrder);
     notifyUpdated('edijital_applications_updated');
 
-    // Async push to Supabase
-    SupabaseService.addApplication(appData).then(cloudApp => {
+    // Async push to Supabase Cloud
+    SupabaseService.addApplication({
+      fullName: newOrder.fullName,
+      tcVkn: newOrder.tcVkn,
+      phone: newOrder.phone,
+      email: newOrder.email,
+      isCorporate: newOrder.isCorporate,
+      companyName: newOrder.companyName,
+      taxOffice: newOrder.taxOffice,
+      packageId: newOrder.packageId,
+      packageName: newOrder.packageName,
+      duration: newOrder.duration,
+      price: newOrder.totalAmount ?? newOrder.price ?? 0,
+      deliveryType: newOrder.deliveryType,
+      address: newOrder.address,
+      city: newOrder.city,
+      district: newOrder.district,
+      notes: `[Sipariş: ${newOrder.orderNumber}] Ödeme: ${paymentLabel}${newOrder.cardLast4 ? ' (Son 4 hane: ' + newOrder.cardLast4 + ')' : ''} | ${newOrder.deliveryTitle || newOrder.deliveryType}${newOrder.notes ? ' | Not: ' + newOrder.notes : ''}`
+    }).then(cloudApp => {
       if (cloudApp) {
-        const currentApps = this.getApplications();
-        const idx = currentApps.findIndex(a => a.trackingCode === newApp.trackingCode);
+        const currentOrders = this.getOrders();
+        const idx = currentOrders.findIndex(a => a.trackingCode === newOrder.trackingCode);
         if (idx !== -1) {
-          currentApps[idx] = cloudApp;
-          localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(currentApps));
+          currentOrders[idx] = {
+            ...newOrder,
+            id: cloudApp.id
+          };
+          localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(currentOrders));
           notifyUpdated('edijital_applications_updated');
         }
       }
     }).catch(console.error);
 
-    return newApp;
+    return newOrder;
   },
 
-  updateApplicationStatus(id: string, status: Application['status'], adminNotes?: string): void {
-    const apps = this.getApplications();
-    const index = apps.findIndex(a => a.id === id);
+  addApplication(appData: any): Application {
+    return this.addOrder(appData);
+  },
+
+  updateOrderStatus(id: string, status: Order['status'], adminNotes?: string, paymentStatus?: import('../types').PaymentStatus): void {
+    const orders = this.getOrders();
+    const index = orders.findIndex(a => a.id === id);
     if (index !== -1) {
-      apps[index].status = status;
+      orders[index].status = status;
       if (adminNotes !== undefined) {
-        apps[index].adminNotes = adminNotes;
+        orders[index].adminNotes = adminNotes;
       }
-      apps[index].updatedAt = new Date().toISOString();
-      localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(apps));
+      if (paymentStatus !== undefined) {
+        orders[index].paymentStatus = paymentStatus;
+      }
+      orders[index].updatedAt = new Date().toISOString();
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
       notifyUpdated('edijital_applications_updated');
-      
+
       // Async push to Supabase
       SupabaseService.updateApplicationStatus(id, status, adminNotes).catch(console.error);
     }
   },
 
-  deleteApplication(id: string): void {
-    let apps = this.getApplications();
-    apps = apps.filter(a => a.id !== id);
-    localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(apps));
+  updateApplicationStatus(id: string, status: Application['status'], adminNotes?: string): void {
+    this.updateOrderStatus(id, status, adminNotes);
+  },
+
+  deleteOrder(id: string): void {
+    let orders = this.getOrders();
+    orders = orders.filter(a => a.id !== id);
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
     notifyUpdated('edijital_applications_updated');
 
     // Async delete from Supabase
     SupabaseService.deleteApplication(id).catch(console.error);
+  },
+
+  deleteApplication(id: string): void {
+    this.deleteOrder(id);
   },
 
   // ==========================================

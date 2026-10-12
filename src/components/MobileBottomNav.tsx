@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Home, 
   Package as PackageIcon, 
-  Zap, 
+  ShoppingBag, 
   Search, 
   PhoneCall, 
   MessageSquare, 
@@ -11,18 +11,23 @@ import {
   Clock,
   MapPin,
   Building,
-  User
+  User,
+  Zap
 } from 'lucide-react';
 import { SiteSettings } from '../types';
 
 interface MobileBottomNavProps {
   settings: SiteSettings;
+  cartCount?: number;
+  onOpenCart?: () => void;
   onOpenApply: () => void;
   onOpenTrack: () => void;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   settings,
+  cartCount = 0,
+  onOpenCart,
   onOpenApply,
   onOpenTrack,
 }) => {
@@ -220,27 +225,33 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             className="flex flex-col items-center justify-center gap-1 py-1 px-1.5 w-full text-zinc-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition"
           >
             <PackageIcon className="w-5 h-5" />
-            <span className="text-[10px] font-medium leading-none">Fiyatlar</span>
+            <span className="text-[10px] font-medium leading-none">Paketler</span>
           </a>
 
-          {/* 3. Center Highlight: Hemen Başvur */}
+          {/* 3. Center Highlight: Sepetim */}
           <button
             onClick={() => {
               setContactOpen(false);
-              onOpenApply();
+              if (onOpenCart) onOpenCart();
+              else onOpenApply();
             }}
-            className="flex flex-col items-center justify-center -mt-4 group cursor-pointer focus:outline-none"
-            aria-label="Hemen E-İmza Başvurusu Yap"
+            className="flex flex-col items-center justify-center -mt-4 group cursor-pointer focus:outline-none relative"
+            aria-label="Sepeti Görüntüle"
           >
-            <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-700 via-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/35 group-hover:scale-105 active:scale-95 transition-all border-2 border-white dark:border-zinc-900">
-              <Zap className="w-5 h-5 fill-current" />
+            <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-700 via-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/35 group-hover:scale-105 active:scale-95 transition-all border-2 border-white dark:border-zinc-900 relative">
+              <ShoppingBag className="w-5 h-5" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
             </div>
             <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 mt-1 leading-none">
-              Başvur
+              Sepetim
             </span>
           </button>
 
-          {/* 4. Application Track */}
+          {/* 4. Order Track */}
           <button
             onClick={() => {
               setContactOpen(false);
@@ -249,10 +260,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             className="flex flex-col items-center justify-center gap-1 py-1 px-1.5 w-full text-zinc-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition cursor-pointer"
           >
             <Search className="w-5 h-5" />
-            <span className="text-[10px] font-medium leading-none">Takip</span>
+            <span className="text-[10px] font-medium leading-none">Sipariş Takip</span>
           </button>
 
-          {/* 5. Contact / İletişim (Toggles popover with Phone & WhatsApp) */}
+          {/* 5. Contact / İletişim */}
           <button
             onClick={() => setContactOpen(!contactOpen)}
             className={`flex flex-col items-center justify-center gap-1 py-1 px-1.5 w-full transition cursor-pointer ${

@@ -1,5 +1,8 @@
 export type DeliveryType = 'magaza' | 'ankara_yerinde' | 'kurye' | 'kargo' | (string & {});
-export type ApplicationStatus = 'yeni' | 'inceleniyor' | 'onaylandi' | 'hazirlandi' | 'teslim_edildi' | 'iptal';
+export type ApplicationStatus = 'yeni' | 'inceleniyor' | 'onaylandi' | 'hazirlaniyor' | 'hazirlandi' | 'kargolandi' | 'teslim_edildi' | 'iptal';
+export type OrderStatus = 'yeni' | 'inceleniyor' | 'onaylandi' | 'hazirlaniyor' | 'hazirlandi' | 'kargolandi' | 'teslim_edildi' | 'iptal';
+export type PaymentMethod = 'credit_card' | 'bank_transfer' | 'cash_on_delivery';
+export type PaymentStatus = 'odendi' | 'havale_bekleniyor' | 'kapida_odeme' | 'odenmedi';
 export type PackageCategory = 'bireysel' | 'kurumsal' | 'mali_muhur' | (string & {});
 
 export interface Package {
@@ -15,9 +18,22 @@ export interface Package {
   features: string[];
 }
 
-export interface Application {
+export interface CartItem {
+  package: Package;
+  quantity: number;
+}
+
+export interface SignedLegalContract {
+  slug: string;
+  title: string;
+  agreedAt: string;
+  contentHtml: string;
+}
+
+export interface Order {
   id: string;
-  trackingCode: string;
+  orderNumber?: string; // e.g. 'EDF-74892'
+  trackingCode: string; // Alias to orderNumber
   fullName: string;
   tcVkn: string;
   phone: string;
@@ -29,16 +45,28 @@ export interface Application {
   packageName: string;
   duration: string;
   price: number;
+  quantity?: number;
+  totalAmount?: number;
+  items?: CartItem[];
   deliveryType: DeliveryType;
+  deliveryTitle?: string;
   address: string;
   city: string;
   district: string;
+  paymentMethod?: PaymentMethod;
+  paymentStatus?: PaymentStatus;
+  cardLast4?: string;
   notes?: string;
   adminNotes?: string;
-  status: ApplicationStatus;
+  status: OrderStatus;
+  signedContracts?: SignedLegalContract[];
+  legalAgreedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
+
+// Backward compatibility alias for Application
+export type Application = Order;
 
 export interface ContactMessage {
   id: string;
@@ -147,6 +175,29 @@ export interface SiteSettings {
 
   // Theme & Styling Customization
   theme?: ThemeConfig;
+
+  // Bank & Payment Information
+  bankName?: string;
+  iban?: string;
+  ibanRecipient?: string;
+  bankBranch?: string;
+  bankTransferNote?: string;
+  bankTransferActive?: boolean;
+  creditCardActive?: boolean;
+  posProvider?: string;
+  posDescription?: string;
+  require3dSecure?: boolean;
+  cashOnDeliveryActive?: boolean;
+  cashOnDeliveryNote?: string;
+
+  // Editable Legal Documents (HTML content)
+  legalDocuments?: Record<string, {
+    title?: string;
+    description?: string;
+    badge?: string;
+    contentHtml?: string;
+    updatedAt?: string;
+  }>;
 }
 
 export interface ActivityLog {

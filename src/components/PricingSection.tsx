@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Check,
+  ShoppingBag,
   Zap,
   Phone,
-  MessageSquare
+  MessageSquare,
+  ArrowRight
 } from 'lucide-react';
 import { Package, SiteSettings } from '../types';
 
@@ -11,9 +13,27 @@ interface PricingSectionProps {
   packages: Package[];
   settings: SiteSettings;
   onSelectPackage: (pkg: Package) => void;
+  onAddToCart?: (pkg: Package) => void;
 }
 
-export const PricingSection: React.FC<PricingSectionProps> = ({ packages, settings, onSelectPackage }) => {
+export const PricingSection: React.FC<PricingSectionProps> = ({ 
+  packages, 
+  settings, 
+  onSelectPackage,
+  onAddToCart 
+}) => {
+  const [addedId, setAddedId] = useState<string | null>(null);
+
+  const handleAdd = (pkg: Package) => {
+    if (onAddToCart) {
+      onAddToCart(pkg);
+      setAddedId(pkg.id);
+      setTimeout(() => setAddedId(null), 1800);
+    } else {
+      onSelectPackage(pkg);
+    }
+  };
+
   return (
     <section id="fiyatlar" className="relative py-16 md:py-24 bg-white dark:bg-black border-b border-slate-200/80 dark:border-zinc-800/80 overflow-hidden">
       {/* Diagonal Diamond Tech Pattern */}
@@ -48,13 +68,13 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ packages, settin
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto mb-10">
           <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-2 block">
-            Şeffaf Fiyatlar
+            Online Sipariş & Hızlı Teslimat
           </span>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">
             E-İmza Paketleri
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 dark:text-zinc-400">
-            Tüm paketlerimizde USB Token donanımı ve teknik kurulum desteği fiyata dahildir.
+            Tüm paketlerimizde yeni nesil USB Token donanımı ve teknik kurulum desteği fiyata dahildir.
           </p>
         </div>
 
@@ -108,7 +128,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ packages, settin
                 {/* Price Display */}
                 <div className={`mb-5 pb-5 border-b ${pkg.popular ? 'border-zinc-800' : 'border-slate-200 dark:border-zinc-800'}`}>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-3xl font-extrabold tracking-tight">
+                    <span className="text-3xl font-extrabold tracking-tight font-mono">
                       {pkg.price.toLocaleString('tr-TR')} ₺
                     </span>
                     <span className={`text-xs ${pkg.popular ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -137,17 +157,15 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ packages, settin
                 </div>
               </div>
 
-              {/* Action Button */}
-              <div>
+              {/* Action Buttons: Sepete Ekle & Hemen Satın Al */}
+              <div className="space-y-2">
                 <button
-                  onClick={() => onSelectPackage(pkg)}
-                  className={`w-full py-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition ${pkg.popular
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                    : 'bg-slate-200 hover:bg-slate-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-900 dark:text-white'
-                    }`}
+                  onClick={() => handleAdd(pkg)}
+                  className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-md shadow-blue-500/25 transition cursor-pointer"
                 >
-                  <Zap className="w-3.5 h-3.5 fill-current" />
-                  <span>Hemen Başvur</span>
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>Sepete Ekle & İlerle</span>
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
 
