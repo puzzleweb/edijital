@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Phone, 
-  MessageSquare, 
-  X, 
-  ShieldCheck, 
-  Zap, 
-  CheckCircle2, 
+import {
+  Phone,
+  MessageSquare,
+  X,
+  ShieldCheck,
+  Zap,
+  CheckCircle2,
   ArrowRight,
   Sparkles,
   Copy,
@@ -71,19 +71,19 @@ export const WelcomeInfoModal: React.FC<WelcomeInfoModalProps> = ({
 
   if (!isOpen) return null;
 
-  const phoneNumber = '0545 960 33 03';
-  const phoneTel = '05459603303';
-  const whatsappUrl = 'https://wa.me/905459603303?text=Merhaba,%20e-imza%20hakk%C4%B1nda%20bilgi%20ve%20fiyat%20almak%20istiyorum.';
+  const phoneNumber = '0543 246 06 55';
+  const phoneTel = '05432460655';
+  const whatsappUrl = 'https://wa.me/905432460655?text=Merhaba,%20e-imza%20hakk%C4%B1nda%20bilgi%20ve%20fiyat%20almak%20istiyorum.';
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-300"
       onClick={handleClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="welcome-info-title"
     >
-      <div 
+      <div
         className="relative w-full max-w-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl shadow-blue-900/20 overflow-hidden transform transition-all animate-in zoom-in-95 duration-300"
         onClick={(e) => e.stopPropagation()}
       >
@@ -111,7 +111,7 @@ export const WelcomeInfoModal: React.FC<WelcomeInfoModalProps> = ({
               <span>Resmi E-İmza Bilgi & Başvuru Hattı</span>
             </div>
 
-            <h3 
+            <h3
               id="welcome-info-title"
               className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight leading-snug"
             >
