@@ -25,7 +25,7 @@ import { StorageService, STORAGE_KEYS, notifyUpdated } from '../services/storage
 import { SupabaseService } from '../services/supabaseService';
 import { supabase } from '../services/supabase';
 import { NotificationSoundService } from '../utils/notificationSound';
-import { AdminOrderNotification, AdminOrderNotificationItem } from '../components/AdminOrderNotification';
+import { AdminOrderNotification, AdminOrderNotificationItem, AdminMessageNotificationItem } from '../components/AdminOrderNotification';
 import { AdminDashboard } from './AdminDashboard';
 import { AdminApplications } from './AdminApplications';
 import { AdminPackages } from './AdminPackages';
@@ -61,15 +61,26 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
   // Notifications & Sound State
   const [orderNotifications, setOrderNotifications] = useState<AdminOrderNotificationItem[]>([]);
+  const [messageNotifications, setMessageNotifications] = useState<AdminMessageNotificationItem[]>([]);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(NotificationSoundService.isSoundEnabled());
   const [desktopPermission, setDesktopPermission] = useState<NotificationPermission | 'unsupported'>(
     NotificationSoundService.getDesktopNotificationPermission()
   );
   const [showNotifMenu, setShowNotifMenu] = useState(false);
 
-  // Keep track of already known/alerted order IDs to avoid duplicate alerts
+  // Keep track of already known/alerted order and message IDs to avoid duplicate alerts
   const knownOrderIdsRef = useRef<Set<string>>(new Set());
+  const knownMessageIdsRef = useRef<Set<string>>(new Set());
+  const knownMessageFingerprintsRef = useRef<Set<string>>(new Set());
   const isInitializedRef = useRef<boolean>(false);
+
+  // Helper to generate a unique content fingerprint for a message
+  const getMessageFingerprint = (msg: { phone?: string; name?: string; message?: string }) => {
+    const phone = (msg.phone || '').replace(/\D/g, '');
+    const name = (msg.name || '').trim().toLowerCase();
+    const text = (msg.message || '').trim().toLowerCase().slice(0, 40);
+    return `${phone}_${name}_${text}`;
+  };
 
   // Function to trigger audio & visual alert when a new order arrives
   const triggerOrderAlert = useCallback((order: Application) => {
@@ -104,31 +115,98 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     }, 15000);
   }, []);
 
+  // Function to trigger audio & visual alert when a new contact message arrives
+  const triggerMessageAlert = useCallback((msg: ContactMessage) => {
+    const idKey = msg.id ? String(msg.id) : '';
+    const fingerprint = getMessageFingerprint(msg);
+
+    // If either ID or content fingerprint is already known -> discard duplicate immediately
+    if (idKey && knownMessageIdsRef.current.has(idKey)) return;
+    if (fingerprint && knownMessageFingerprintsRef.current.has(fingerprint)) return;
+
+    if (idKey) knownMessageIdsRef.current.add(idKey);
+    if (fingerprint) {
+      knownMessageFingerprintsRef.current.add(fingerprint);
+      // Retain fingerprint for 4 seconds to absorb duplicate network events (WebSocket + polling)
+      setTimeout(() => {
+        knownMessageFingerprintsRef.current.delete(fingerprint);
+      }, 4000);
+    }
+
+    // 1. Play dedicated crisp message chime sound
+    NotificationSoundService.playMessageChime();
+
+    // 2. Fire OS / Desktop Browser notification (if permitted)
+    NotificationSoundService.sendDesktopNotification(`💬 Yeni İletişim Mesajı: ${msg.name}`, {
+      body: `Konu: ${msg.subject || 'Bilgi Talebi'}\nTel: ${msg.phone || '-'}\n${msg.message ? msg.message.slice(0, 80) : ''}`,
+      tag: `msg-${idKey || fingerprint}`
+    });
+
+    // 3. Add to in-app toast stack with visual duplicate prevention
+    const notifId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setMessageNotifications(prev => {
+      const alreadyPresent = prev.some(item => 
+        (idKey && item.message.id && item.message.id === idKey) ||
+        (fingerprint && getMessageFingerprint(item.message) === fingerprint)
+      );
+      if (alreadyPresent) return prev;
+      return [
+        { id: notifId, message: msg, timestamp: Date.now() },
+        ...prev.slice(0, 4) // Keep at most 5 toasts
+      ];
+    });
+
+    // Auto-dismiss after 15 seconds
+    setTimeout(() => {
+      setMessageNotifications(prev => prev.filter(n => n.id !== notifId));
+    }, 15000);
+  }, []);
+
   // Sync with storage events & Supabase Realtime
   useEffect(() => {
-    // Populate existing order IDs on initial mount so we don't alert on existing orders
+    // Populate existing order and message IDs on initial mount so we don't alert on existing items
     const initialApps = StorageService.getApplications();
     initialApps.forEach(a => {
       if (a.id) knownOrderIdsRef.current.add(String(a.id));
       if (a.trackingCode) knownOrderIdsRef.current.add(String(a.trackingCode));
       if (a.orderNumber) knownOrderIdsRef.current.add(String(a.orderNumber));
     });
+
+    const initialMsgs = StorageService.getMessages();
+    initialMsgs.forEach(m => {
+      if (m.id) knownMessageIdsRef.current.add(String(m.id));
+    });
+
     isInitializedRef.current = true;
 
     const handleSync = () => {
       const freshApps = StorageService.getApplications();
       setApplications(freshApps);
       setPackages(StorageService.getPackages());
-      setMessages(StorageService.getMessages());
+      const freshMsgs = StorageService.getMessages();
+      setMessages(freshMsgs);
       setSettings(StorageService.getSettings());
       setLogs(StorageService.getLogs());
 
-      // If initialized, check for newly added orders from local/sync
+      // If initialized, check for newly added orders & messages from local/sync
       if (isInitializedRef.current) {
         for (const app of freshApps) {
           const k = app.id || app.trackingCode || app.orderNumber;
           if (k && !knownOrderIdsRef.current.has(String(k))) {
             triggerOrderAlert(app);
+          }
+        }
+
+        for (const m of freshMsgs) {
+          const k = m.id || `${m.name}-${m.createdAt}`;
+          const fp = getMessageFingerprint(m);
+          if (k && !knownMessageIdsRef.current.has(String(k)) && (!fp || !knownMessageFingerprintsRef.current.has(fp))) {
+            if (!m.read) {
+              triggerMessageAlert(m);
+            } else {
+              knownMessageIdsRef.current.add(String(k));
+              if (fp) knownMessageFingerprintsRef.current.add(fp);
+            }
           }
         }
       }
@@ -138,6 +216,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       if (event.detail) {
         triggerOrderAlert(event.detail);
       }
+      handleSync();
+    };
+
+    const handleNewMessageEvent = (event: any) => {
+      if (event.detail) {
+        triggerMessageAlert(event.detail);
+      }
+      handleSync();
     };
 
     const handleSoundPrefChanged = (event: any) => {
@@ -149,21 +235,29 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     // 1. Initial live sync with cloud
     StorageService.syncWithSupabase();
 
-    // 2. Custom local & broadcast channel events
+    // 2. Unlock sound engine quietly on user interaction
+    const unlockOnGesture = () => {
+      NotificationSoundService.unlock();
+    };
+    window.addEventListener('click', unlockOnGesture, { passive: true });
+    window.addEventListener('pointerdown', unlockOnGesture, { passive: true });
+    window.addEventListener('keydown', unlockOnGesture, { passive: true });
+
     window.addEventListener('edijital_applications_updated', handleSync);
     window.addEventListener('edijital_new_order_placed', handleNewOrderEvent);
+    window.addEventListener('edijital_new_message_received', handleNewMessageEvent);
     window.addEventListener('edijital_sound_pref_changed', handleSoundPrefChanged);
     window.addEventListener('edijital_packages_updated', handleSync);
     window.addEventListener('edijital_messages_updated', handleSync);
     window.addEventListener('edijital_settings_updated', handleSync);
     window.addEventListener('storage', handleSync);
 
-    // 3. Supabase Realtime Channel for Instant Cross-Device Sync (WebSocket push only)
+    // 3. Supabase Realtime Channel for Instant Cross-Device Sync (WebSocket push)
     const realtimeChannel = supabase
       .channel('admin_live_feed')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'applications' }, async (payload) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, async (payload) => {
         const row = payload.new as any;
-        if (row) {
+        if (payload.eventType === 'INSERT' && row) {
           const incomingOrder: Application = {
             id: row.id,
             orderNumber: row.tracking_code,
@@ -189,31 +283,104 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           };
           triggerOrderAlert(incomingOrder);
         }
+
+        // Fetch cloud apps directly from Supabase (single source of truth)
         const cloudApps = await SupabaseService.getApplications();
-        if (cloudApps) {
+        if (cloudApps !== null) {
           localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(cloudApps));
-          notifyUpdated('edijital_applications_updated');
+          localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(cloudApps));
+          setApplications(cloudApps);
         }
+        handleSync();
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, async () => {
-        const cloudApps = await SupabaseService.getApplications();
-        if (cloudApps) {
-          localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(cloudApps));
-          notifyUpdated('edijital_applications_updated');
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_messages' }, async (payload) => {
+        const row = payload.new as any;
+        if (payload.eventType === 'INSERT' && row) {
+          const incomingMsg: ContactMessage = {
+            id: row.id,
+            name: row.name,
+            email: row.email,
+            phone: row.phone,
+            subject: row.subject,
+            message: row.message,
+            read: Boolean(row.read),
+            createdAt: row.created_at || new Date().toISOString()
+          };
+          triggerMessageAlert(incomingMsg);
         }
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_messages' }, async () => {
+
         const cloudMsgs = await SupabaseService.getMessages();
         if (cloudMsgs) {
           localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(cloudMsgs));
-          notifyUpdated('edijital_messages_updated');
+          setMessages(cloudMsgs);
         }
       })
       .subscribe();
 
+    // 4. Real-time Heartbeat Polling (every 3.5 seconds)
+    // Ensures cross-device orders & messages appear instantly and deleted items vanish without refresh
+    const heartbeatInterval = setInterval(async () => {
+      try {
+        const [cloudApps, cloudMsgs] = await Promise.all([
+          SupabaseService.getApplications(),
+          SupabaseService.getMessages()
+        ]);
+
+        if (cloudApps !== null) {
+          let hasNew = false;
+          for (const c of cloudApps) {
+            const k = c.id || c.trackingCode || c.orderNumber;
+            if (k && !knownOrderIdsRef.current.has(String(k))) {
+              triggerOrderAlert(c);
+              hasNew = true;
+            }
+          }
+          localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(cloudApps));
+          localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(cloudApps));
+          setApplications(prev => {
+            if (hasNew || cloudApps.length !== prev.length) {
+              return cloudApps;
+            }
+            return prev;
+          });
+        }
+
+        if (cloudMsgs !== null) {
+          let hasNewMsg = false;
+          for (const m of cloudMsgs) {
+            const k = m.id || `${m.name}-${m.createdAt}`;
+            const fp = getMessageFingerprint(m);
+            if (k && !knownMessageIdsRef.current.has(String(k)) && (!fp || !knownMessageFingerprintsRef.current.has(fp))) {
+              if (!m.read) {
+                triggerMessageAlert(m);
+                hasNewMsg = true;
+              } else {
+                knownMessageIdsRef.current.add(String(k));
+                if (fp) knownMessageFingerprintsRef.current.add(fp);
+              }
+            }
+          }
+          localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(cloudMsgs));
+          setMessages(prev => {
+            if (hasNewMsg || cloudMsgs.length !== prev.length) {
+              return cloudMsgs;
+            }
+            return prev;
+          });
+        }
+      } catch {
+        // silent
+      }
+    }, 3500);
+
     return () => {
+      clearInterval(heartbeatInterval);
+      window.removeEventListener('click', unlockOnGesture);
+      window.removeEventListener('pointerdown', unlockOnGesture);
+      window.removeEventListener('keydown', unlockOnGesture);
       window.removeEventListener('edijital_applications_updated', handleSync);
       window.removeEventListener('edijital_new_order_placed', handleNewOrderEvent);
+      window.removeEventListener('edijital_new_message_received', handleNewMessageEvent);
       window.removeEventListener('edijital_sound_pref_changed', handleSoundPrefChanged);
       window.removeEventListener('edijital_packages_updated', handleSync);
       window.removeEventListener('edijital_messages_updated', handleSync);
@@ -221,7 +388,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       window.removeEventListener('storage', handleSync);
       supabase.removeChannel(realtimeChannel);
     };
-  }, [triggerOrderAlert]);
+  }, [triggerOrderAlert, triggerMessageAlert]);
 
   // Handler for sending a test order notification to verify sound and visual alert
   const handleTestOrder = () => {
@@ -252,6 +419,22 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       updatedAt: new Date().toISOString()
     };
     triggerOrderAlert(sampleOrder);
+  };
+
+  // Handler for sending a test contact message notification
+  const handleTestMessage = () => {
+    const randomCode = Math.floor(100 + Math.random() * 900);
+    const sampleMsg: ContactMessage = {
+      id: `TEST-MSG-${Date.now()}`,
+      name: `Merve Demir (${randomCode})`,
+      email: 'merve@example.com',
+      phone: `0532 ${randomCode} 45 67`,
+      subject: '[Eryaman Şubesi] E-İmza Bilgi Talebi',
+      message: 'Merhaba, şirketimiz için 3 yıllık e-imza almak istiyoruz. Kurulum desteği veriyor musunuz?',
+      read: false,
+      createdAt: new Date().toISOString()
+    };
+    triggerMessageAlert(sampleMsg);
   };
 
   const handleToggleSound = () => {
@@ -549,15 +732,26 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                       </button>
                     </div>
 
-                    {/* Test Audio Button */}
-                    <button
-                      type="button"
-                      onClick={() => NotificationSoundService.playOrderChime()}
-                      className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold transition"
-                    >
-                      <Volume2 className="w-3.5 h-3.5 text-blue-500" />
-                      <span>Sesi Dinle (Zil Sesi Testi)</span>
-                    </button>
+                    {/* Test Audio Buttons */}
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => NotificationSoundService.playOrderChime()}
+                        className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-[11px] font-semibold transition"
+                      >
+                        <Volume2 className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>Sipariş Zili</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => NotificationSoundService.playMessageChime()}
+                        className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-[11px] font-semibold transition"
+                      >
+                        <Volume2 className="w-3.5 h-3.5 text-blue-500" />
+                        <span>Mesaj Zili</span>
+                      </button>
+                    </div>
 
                     {/* Browser Desktop Notification Status & Request */}
                     <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60 space-y-2">
@@ -591,15 +785,26 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                       </div>
                     </div>
 
-                    {/* Test Full Live Alert Button */}
-                    <button
-                      type="button"
-                      onClick={handleTestOrder}
-                      className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold shadow-md shadow-emerald-600/20 transition active:scale-98"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Canlı Sipariş & Ses Testi Yap</span>
-                    </button>
+                    {/* Test Full Live Alert Buttons */}
+                    <div className="space-y-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleTestOrder}
+                        className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold shadow-md shadow-emerald-600/20 transition active:scale-98"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Canlı Sipariş & Ses Testi Yap</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleTestMessage}
+                        className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-md shadow-blue-600/20 transition active:scale-98"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Canlı Mesaj & Ses Testi Yap</span>
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
@@ -672,13 +877,18 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
       </div>
 
-      {/* Floating Real-time Order Notification Popups */}
+      {/* Floating Real-time Order & Contact Message Notification Popups */}
       <AdminOrderNotification
         notifications={orderNotifications}
+        messageNotifications={messageNotifications}
         onDismiss={(id) => setOrderNotifications(prev => prev.filter(n => n.id !== id))}
+        onDismissMessage={(id) => setMessageNotifications(prev => prev.filter(n => n.id !== id))}
         onViewOrder={(order) => {
           setSelectedAppForDetail(order);
           setActiveTab('applications');
+        }}
+        onViewMessage={(_msg) => {
+          setActiveTab('messages');
         }}
       />
 

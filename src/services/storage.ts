@@ -229,10 +229,12 @@ export const StorageService = {
         notifyUpdated('edijital_packages_updated');
       }
 
-      // 3. Applications
+      // 3. Applications / Orders
       const cloudApps = await SupabaseService.getApplications();
-      if (cloudApps) {
+      if (cloudApps !== null) {
+        // Supabase is the single source of truth
         localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(cloudApps));
+        localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(cloudApps));
         notifyUpdated('edijital_applications_updated');
       }
 
@@ -418,12 +420,19 @@ export const StorageService = {
   // ORDERS (ONLINE SİPARİŞLER)
   // ==========================================
   getOrders(): Order[] {
-    const data = localStorage.getItem(STORAGE_KEYS.ORDERS);
-    if (!data) {
+    let data = localStorage.getItem(STORAGE_KEYS.ORDERS);
+    let list: any[] = [];
+    try {
+      if (data) list = JSON.parse(data);
+    } catch {
+      list = [];
+    }
+
+    if (!Array.isArray(list) || list.length === 0) {
       return [];
     }
+
     try {
-      const list: Order[] = JSON.parse(data);
       return list.map(a => {
         const notesLower = String(a.notes || '').toLowerCase();
         let method: PaymentMethod = 'credit_card';
@@ -648,6 +657,7 @@ export const StorageService = {
     localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(messages));
     this.addLog('Yeni İletişim Mesajı', `${newMsg.name} (${newMsg.subject})`, 'Ziyaretçi');
     notifyUpdated('edijital_messages_updated');
+    notifyUpdated('edijital_new_message_received', newMsg);
 
     // Async push to Supabase
     SupabaseService.addMessage(msg).catch(console.error);
