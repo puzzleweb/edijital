@@ -222,6 +222,22 @@ export class IsyerimPosService {
   }
 
   /**
+   * Müşterinin gerçek IP adresini dinamik tespit eder
+   */
+  public static async getClientIp(): Promise<string> {
+    try {
+      const res = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(2000) });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.ip) return data.ip;
+      }
+    } catch {
+      // sessizce fallback'e geç
+    }
+    return '127.0.0.1';
+  }
+
+  /**
    * 3D Ödeme İsteği Başlat (payRequest3d)
    */
   public static async create3DPayment(
@@ -236,11 +252,15 @@ export class IsyerimPosService {
       };
     }
 
+    const resolvedIp = payload.clientIp && payload.clientIp !== '127.0.0.1' 
+      ? payload.clientIp 
+      : await this.getClientIp();
+
     // Model eşlemesi (dev.isyerimpos.com spesifikasyonu)
     const requestBody = {
       ReturnUrl: payload.returnUrl,
       OrderId: payload.orderId,
-      ClientIp: payload.clientIp || '127.0.0.1',
+      ClientIp: resolvedIp,
       Installment: payload.installment || 1,
       Amount: payload.amount,
       Is3D: payload.is3d !== false, // Varsayılan: 3D True
