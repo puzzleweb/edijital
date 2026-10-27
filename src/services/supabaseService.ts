@@ -154,7 +154,14 @@ export const SupabaseService = {
         posDescription: data.pos_description ?? t.posDescription ?? undefined,
         require3dSecure: data.require_3d_secure ?? t.require3dSecure ?? true,
         cashOnDeliveryActive: data.cash_on_delivery_active ?? t.cashOnDeliveryActive ?? false,
-        cashOnDeliveryNote: data.cash_on_delivery_note ?? t.cashOnDeliveryNote ?? undefined
+        cashOnDeliveryNote: data.cash_on_delivery_note ?? t.cashOnDeliveryNote ?? undefined,
+        isyerimPosActive: data.isyerim_pos_active ?? t.isyerimPosActive ?? undefined,
+        isyerimPosTestMode: data.isyerim_pos_test_mode ?? t.isyerimPosTestMode ?? undefined,
+        isyerimPosMerchantId: data.isyerim_pos_merchant_id ?? t.isyerimPosMerchantId ?? undefined,
+        isyerimPosUserId: data.isyerim_pos_user_id ?? t.isyerimPosUserId ?? undefined,
+        isyerimPosApiKey: data.isyerim_pos_api_key ?? t.isyerimPosApiKey ?? undefined,
+        isyerimPosReflectCost: data.isyerim_pos_reflect_cost ?? t.isyerimPosReflectCost ?? undefined,
+        isyerimPosInstallmentsActive: data.isyerim_pos_installments_active ?? t.isyerimPosInstallmentsActive ?? undefined
       };
     } catch (err) {
       console.error('getSettings error:', err);

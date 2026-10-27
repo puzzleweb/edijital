@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { SiteSettings, DeliveryOptionItem, DeliveryType } from '../types';
 import { StorageService, DEFAULT_DELIVERY_OPTIONS } from '../services/storage';
-import { Settings, Save, Check, Phone, MapPin, Clock, Bell, Sparkles, RefreshCw, Truck, Plus, Trash2, CreditCard, Building2, Landmark, Wallet, ShieldCheck } from 'lucide-react';
+import { Settings, Save, Check, Phone, MapPin, Clock, Bell, Sparkles, RefreshCw, Truck, Plus, Trash2, CreditCard, Building2, Landmark, Wallet, ShieldCheck, ExternalLink, Key, CheckCircle2, AlertCircle, HelpCircle } from 'lucide-react';
+import { IsyerimPosService, ISYERIM_TEST_CARDS, DEFAULT_ISYERIM_CONFIG } from '../services/isyerimPosService';
 
 interface AdminSettingsProps {
   settings: SiteSettings;
@@ -20,6 +21,27 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings }) => {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [testLoading, setTestLoading] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [showTestCards, setShowTestCards] = useState(false);
+
+  const handleTestIsyerimPos = async () => {
+    setTestLoading(true);
+    setTestResult(null);
+    try {
+      const res = await IsyerimPosService.testConnection({
+        merchantId: formData.isyerimPosMerchantId || DEFAULT_ISYERIM_CONFIG.testMerchantId,
+        userId: formData.isyerimPosUserId || DEFAULT_ISYERIM_CONFIG.testUserId,
+        apiKey: formData.isyerimPosApiKey || DEFAULT_ISYERIM_CONFIG.testApiKey,
+        isTestMode: formData.isyerimPosTestMode !== false
+      });
+      setTestResult(res);
+    } catch (err: any) {
+      setTestResult({ success: false, message: err.message || 'Bağlantı testi başarısız oldu' });
+    } finally {
+      setTestLoading(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,27 +212,32 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings }) => {
             </div>
           </div>
 
-          {/* 2. KREDİ / BANKA KARTI (SANAL POS) AYARLARI */}
-          <div className="p-5 rounded-2xl bg-blue-50/40 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-blue-200/50 dark:border-blue-900/30">
+          {/* 2. KREDİ / BANKA KARTI & İŞYERİM POS AYARLARI */}
+          <div className="p-5 rounded-2xl bg-blue-50/40 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-blue-200/50 dark:border-blue-900/30 gap-2">
               <div className="flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 <span className="font-bold text-xs uppercase tracking-wider text-blue-900 dark:text-blue-200">
-                  Kredi / Banka Kartı (Sanal POS)
+                  Kredi / Banka Kartı (İşyerim POS Sanal POS)
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300">
+                  dev.isyerimpos.com
                 </span>
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.creditCardActive !== false}
-                  onChange={(e) => setFormData({ ...formData, creditCardActive: e.target.checked })}
-                  className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-xs font-bold text-blue-900 dark:text-blue-300">
-                  {formData.creditCardActive !== false ? 'Kartla Ödeme Aktif' : 'Pasif'}
-                </span>
-              </label>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.creditCardActive !== false}
+                    onChange={(e) => setFormData({ ...formData, creditCardActive: e.target.checked })}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-xs font-bold text-blue-900 dark:text-blue-300">
+                    {formData.creditCardActive !== false ? 'Kartla Ödeme Açık' : 'Kapalı'}
+                  </span>
+                </label>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
@@ -229,7 +256,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings }) => {
 
               <div>
                 <label className="block font-semibold text-gray-700 dark:text-zinc-300 mb-1">
-                  Kart Açıklama / Taksit Bilgilendirmesi
+                  Kart Açıklama / Bilgilendirme
                 </label>
                 <input
                   type="text"
@@ -239,6 +266,276 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings }) => {
                   className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white"
                 />
               </div>
+            </div>
+
+            {/* İşyerim POS API Ayarları Kutusu */}
+            <div className="p-4 rounded-xl bg-white dark:bg-zinc-900/80 border border-blue-100 dark:border-blue-900/40 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Key className="w-4 h-4 text-blue-600" />
+                  <span className="font-bold text-xs text-zinc-900 dark:text-white">
+                    İşyerim POS API Entegrasyon Bilgileri
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                    <input
+                      type="checkbox"
+                      checked={formData.isyerimPosActive !== false}
+                      onChange={(e) => setFormData({ ...formData, isyerimPosActive: e.target.checked })}
+                      className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>İşyerim POS Aktif</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Ortam Seçimi: Test vs Canlı */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, isyerimPosTestMode: true })}
+                  className={`p-3 rounded-xl border text-left transition cursor-pointer flex items-center justify-between ${
+                    formData.isyerimPosTestMode !== false
+                      ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 ring-1 ring-blue-500'
+                      : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  <div>
+                    <span className="font-bold text-xs text-zinc-900 dark:text-white block">🧪 Test Ortamı</span>
+                    <span className="text-[10px] text-zinc-500 font-mono">https://apitest.isyerimpos.com/v1/</span>
+                  </div>
+                  {formData.isyerimPosTestMode !== false && (
+                    <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, isyerimPosTestMode: false })}
+                  className={`p-3 rounded-xl border text-left transition cursor-pointer flex items-center justify-between ${
+                    formData.isyerimPosTestMode === false
+                      ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 ring-1 ring-emerald-500'
+                      : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  <div>
+                    <span className="font-bold text-xs text-zinc-900 dark:text-white block">🚀 Canlı / Gerçek Ortam</span>
+                    <span className="text-[10px] text-zinc-500 font-mono">https://api.isyerimpos.com/v1/</span>
+                  </div>
+                  {formData.isyerimPosTestMode === false && (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  )}
+                </button>
+              </div>
+
+              {/* API Credentials */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+                <div>
+                  <label className="block font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                    Merchant ID (Üye İşyeri No) *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="11039"
+                    value={formData.isyerimPosMerchantId ?? DEFAULT_ISYERIM_CONFIG.testMerchantId}
+                    onChange={(e) => setFormData({ ...formData, isyerimPosMerchantId: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                    API User ID (Kullanıcı No) *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="445"
+                    value={formData.isyerimPosUserId ?? DEFAULT_ISYERIM_CONFIG.testUserId}
+                    onChange={(e) => setFormData({ ...formData, isyerimPosUserId: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                    API Key (Gizli Anahtar) *
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="AQAAAAEAACcQAAAA..."
+                    value={formData.isyerimPosApiKey ?? DEFAULT_ISYERIM_CONFIG.testApiKey}
+                    onChange={(e) => setFormData({ ...formData, isyerimPosApiKey: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Additional Options */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs">
+                <div>
+                  <label className="block font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                    3D Secure İşlemi
+                  </label>
+                  <select
+                    value={formData.require3dSecure !== false ? 'true' : 'false'}
+                    onChange={(e) => setFormData({ ...formData, require3dSecure: e.target.value === 'true' })}
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="true">Zorunlu (3D Secure ile Güvenli)</option>
+                    <option value="false">İsteğe Bağlı / Non-3D</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                    Taksit Seçenekleri
+                  </label>
+                  <select
+                    value={formData.isyerimPosInstallmentsActive !== false ? 'true' : 'false'}
+                    onChange={(e) => setFormData({ ...formData, isyerimPosInstallmentsActive: e.target.value === 'true' })}
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="true">Aktif (Taksit Tablosu Göster)</option>
+                    <option value="false">Pasif (Yalnızca Tek Çekim)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+                    Komisyon Maliyeti (ReflectCost)
+                  </label>
+                  <select
+                    value={formData.isyerimPosReflectCost === 'true' ? 'true' : formData.isyerimPosReflectCost === 'null' ? 'null' : 'false'}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setFormData({
+                        ...formData,
+                        isyerimPosReflectCost: v === 'true' ? 'true' : v === 'null' ? 'null' : 'false'
+                      });
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="false">Müşteriye Yansıtma (Firma Karşılar - Sepet Tutarını Birebir Çek)</option>
+                    <option value="true">Müşteriye Yansıt (+Komisyon & Vade Farkı Ekle)</option>
+                    <option value="null">İşyerim POS Panel Tanımına Bırak</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Action buttons & test connection */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleTestIsyerimPos}
+                    disabled={testLoading}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition cursor-pointer flex items-center gap-1.5 shadow-sm"
+                  >
+                    {testLoading ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    )}
+                    <span>{testLoading ? 'Test Ediliyor...' : 'Bağlantıyı Test Et'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        isyerimPosMerchantId: DEFAULT_ISYERIM_CONFIG.testMerchantId,
+                        isyerimPosUserId: DEFAULT_ISYERIM_CONFIG.testUserId,
+                        isyerimPosApiKey: DEFAULT_ISYERIM_CONFIG.testApiKey,
+                        isyerimPosTestMode: true
+                      });
+                      setTestResult({ success: true, message: 'Test bilgileri başarıyla forma yüklendi.' });
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium text-xs transition cursor-pointer"
+                  >
+                    Varsayılan Test Bilgilerini Doldur
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowTestCards(!showTestCards)}
+                    className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline cursor-pointer font-medium"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    <span>{showTestCards ? 'Test Kartlarını Gizle' : 'Test Kartlarını Gör'}</span>
+                  </button>
+
+                  <a
+                    href="https://dev.isyerimpos.com"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-blue-600 transition"
+                  >
+                    <span>Dökümantasyon</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+
+              {/* Test Result Message Banner */}
+              {testResult && (
+                <div className={`p-3 rounded-xl text-xs flex items-center gap-2 animate-in fade-in ${
+                  testResult.success
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+                    : 'bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
+                }`}>
+                  {testResult.success ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  )}
+                  <span>{testResult.message}</span>
+                </div>
+              )}
+
+              {/* Test Cards Reference Table */}
+              {showTestCards && (
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-xs space-y-2 animate-in fade-in">
+                  <div className="font-bold text-zinc-900 dark:text-white flex items-center justify-between">
+                    <span>İşyerim POS Test Kartları (dev.isyerimpos.com)</span>
+                    <span className="text-[10px] text-zinc-400">SMS şifresi genelde "a" dır</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-zinc-200 dark:border-zinc-700 text-[10px] text-zinc-500 uppercase">
+                          <th className="py-1 px-2">Banka</th>
+                          <th className="py-1 px-2">Kart Numarası</th>
+                          <th className="py-1 px-2">SKT</th>
+                          <th className="py-1 px-2">CVV</th>
+                          <th className="py-1 px-2">SMS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-200/60 dark:divide-zinc-700/60 font-mono text-[11px]">
+                        {ISYERIM_TEST_CARDS.map((card, idx) => (
+                          <tr key={idx} className={card.recommended ? 'bg-blue-50/50 dark:bg-blue-950/30' : ''}>
+                            <td className="py-1.5 px-2 font-sans font-medium text-zinc-900 dark:text-white flex items-center gap-1">
+                              <span>{card.bank}</span>
+                              {card.recommended && (
+                                <span className="text-[9px] px-1 py-0.2 rounded bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 font-bold">Önerilen</span>
+                              )}
+                            </td>
+                            <td className="py-1.5 px-2 font-bold text-blue-600 dark:text-blue-400">{card.cardNo}</td>
+                            <td className="py-1.5 px-2">{card.expiry}</td>
+                            <td className="py-1.5 px-2">{card.cvv}</td>
+                            <td className="py-1.5 px-2 text-emerald-600 dark:text-emerald-400 font-bold">{card.smsCode || 'a'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
 

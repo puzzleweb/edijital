@@ -61,6 +61,9 @@ export interface Order {
   status: OrderStatus;
   signedContracts?: SignedLegalContract[];
   legalAgreedAt?: string;
+  posTransactionUid?: string;
+  posAuthCode?: string;
+  posInstallment?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -190,6 +193,15 @@ export interface SiteSettings {
   cashOnDeliveryActive?: boolean;
   cashOnDeliveryNote?: string;
 
+  // İşyerim POS Entegrasyon Ayarları
+  isyerimPosActive?: boolean;
+  isyerimPosTestMode?: boolean; // true = Test Ortamı, false = Gerçek Ortam
+  isyerimPosMerchantId?: string;
+  isyerimPosUserId?: string;
+  isyerimPosApiKey?: string;
+  isyerimPosReflectCost?: 'null' | 'true' | 'false' | null;
+  isyerimPosInstallmentsActive?: boolean;
+
   // Editable Legal Documents (HTML content)
   legalDocuments?: Record<string, {
     title?: string;
@@ -207,3 +219,46 @@ export interface ActivityLog {
   timestamp: string;
   user: string;
 }
+
+// İşyerim POS Model Tanımları
+export interface IsyerimInstallmentItem {
+  Installment: number;
+  Amount: number;
+  WithdrawAmount: number;
+  CostRate: number;
+  CostAmount: number;
+  CostAmount2: number;
+  NetAmount: number;
+  NetAmount2: number;
+}
+
+export interface IsyerimCardInfo {
+  BankId?: number;
+  BankName?: string;
+  CardModel?: number;
+  CardType?: number;
+  CardSchema?: number;
+  CardBrand?: number;
+  IsBusinessCard?: boolean;
+  IsCreditCard?: boolean;
+  CanInstallment?: boolean;
+  LogoUrl?: string;
+}
+
+export interface IsyerimInstallmentResult {
+  Installments: IsyerimInstallmentItem[];
+  CardInfo?: IsyerimCardInfo;
+}
+
+export interface IsyerimPayResponse {
+  Uid?: string;
+  PaymentLink?: string;
+  ResponseAsHtml?: string;
+  OrderId?: string;
+  Status?: number;
+  AuthCode?: string;
+  Message?: string;
+  ErrorCode?: number;
+  IsDone: boolean;
+}
+

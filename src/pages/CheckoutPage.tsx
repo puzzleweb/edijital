@@ -26,10 +26,12 @@ import {
   HelpCircle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { CartItem, SiteSettings, Order, PaymentMethod, PaymentStatus, DeliveryOptionItem, DeliveryType, Package } from '../types';
+import { CartItem, SiteSettings, Order, PaymentMethod, PaymentStatus, DeliveryOptionItem, DeliveryType, Package, IsyerimInstallmentResult } from '../types';
 import { StorageService, DEFAULT_DELIVERY_OPTIONS } from '../services/storage';
 import { LegalDocSlug } from './LegalPage';
 import { generateCustomerContractSnapshots } from '../data/defaultLegalDocs';
+import { IsyerimPosService, ISYERIM_TEST_CARDS, TestCardItem } from '../services/isyerimPosService';
+import { Isyerim3DModal } from '../components/Isyerim3DModal';
 
 interface CheckoutPageProps {
   settings: SiteSettings;
@@ -99,6 +101,22 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [cardCvv, setCardCvv] = useState('');
   const [secure3d, setSecure3d] = useState(true);
 
+  // İşyerim POS state
+  const [installmentResult, setInstallmentResult] = useState<IsyerimInstallmentResult | null>(null);
+  const [selectedInstallment, setSelectedInstallment] = useState<number>(1);
+  const [loadingInstallments, setLoadingInstallments] = useState<boolean>(false);
+  const [isyerim3dModalOpen, setIsyerim3dModalOpen] = useState(false);
+  const [isyerim3dData, setIsyerim3dData] = useState<{
+    uid?: string;
+    orderId: string;
+    amount: number;
+    paymentLink?: string;
+    responseAsHtml?: string;
+  } | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [selectedTestCard, setSelectedTestCard] = useState<TestCardItem | null>(null);
+  const [pendingOrderData, setPendingOrderData] = useState<any>(null);
+
   // Legal Agreements (Müşteri kendisi açıkça işaretlemelidir - Boş başlar)
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedDistanceContract, setAgreedDistanceContract] = useState(false);
@@ -128,11 +146,68 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const kdvAmount = Math.round(subtotal * kdvRate);
   const grandTotal = subtotal + kdvAmount;
 
+  // Selected Installment item calculation
+  // Selected Installment item calculation
+  const selectedInstallmentItem = installmentResult?.Installments?.find(
+    (i) => i.Installment === selectedInstallment
+  );
+  // Çekilecek nihai tutar: Seçili taksit/tek çekim tutarı, yoksa sepet genel toplamı
+  const payableAmount = selectedInstallmentItem
+    ? selectedInstallmentItem.WithdrawAmount
+    : grandTotal;
+
+  const reflectCostBool = settings.isyerimPosReflectCost === 'true' 
+    ? true 
+    : settings.isyerimPosReflectCost === 'null' 
+    ? null 
+    : false;
+
+  // Query Installments from İşyerim POS
+  const queryInstallments = async (rawCard: string) => {
+    if (rawCard.length < 6 || settings.isyerimPosInstallmentsActive === false) {
+      setInstallmentResult(null);
+      return;
+    }
+    setLoadingInstallments(true);
+    try {
+      const res = await IsyerimPosService.getInstallments(rawCard, grandTotal, reflectCostBool);
+      setInstallmentResult(res);
+      if (res && res.Installments && res.Installments.length > 0) {
+        if (!res.Installments.some(i => i.Installment === selectedInstallment)) {
+          setSelectedInstallment(1);
+        }
+      }
+    } catch (err) {
+      console.warn('Installment query error:', err);
+    } finally {
+      setLoadingInstallments(false);
+    }
+  };
+
   // Format card number with spaces (e.g. 4506 1234 5678 9012)
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, '').slice(0, 16);
     const formatted = raw.replace(/(\d{4})(?=\d)/g, '$1 ');
     setCardNumber(formatted);
+    setPaymentError(null);
+
+    if (raw.length >= 6) {
+      queryInstallments(raw);
+    } else {
+      setInstallmentResult(null);
+      setSelectedInstallment(1);
+    }
+  };
+
+  // Quick fill test card
+  const handleSelectTestCard = (testCard: TestCardItem) => {
+    setSelectedTestCard(testCard);
+    setCardNumber(testCard.cardNo);
+    setCardHolder('MEHMET YILMAZ');
+    setCardExpiry(testCard.expiry);
+    setCardCvv(testCard.cvv);
+    setPaymentError(null);
+    queryInstallments(testCard.cardNo.replace(/\D/g, ''));
   };
 
   // Format expiry (MM/YY)
@@ -158,7 +233,50 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     else setPhone(`${formatted.slice(0, 4)} ${formatted.slice(4, 7)} ${formatted.slice(7, 9)} ${formatted.slice(9, 11)}`);
   };
 
-  const handleSubmitOrder = (e: React.FormEvent) => {
+  // 3D Secure Doğrulama Başarılı Olduğunda Siparişi Kesinleştir
+  const handle3DSuccess = (result: { uid?: string; authCode?: string; message?: string }) => {
+    setIsyerim3dModalOpen(false);
+    setLoading(false);
+
+    if (!pendingOrderData) return;
+
+    const finalOrder = StorageService.addOrder({
+      ...pendingOrderData,
+      posTransactionUid: result.uid,
+      posAuthCode: result.authCode
+    });
+
+    // Clear shopping cart after successful purchase
+    StorageService.clearCart();
+
+    // Confetti celebration
+    try {
+      confetti({
+        particleCount: 120,
+        spread: 80,
+        origin: { y: 0.6 }
+      });
+    } catch {
+      // ignore
+    }
+
+    setCreatedOrder(finalOrder);
+    setPendingOrderData(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handle3DFailure = (err: string) => {
+    setIsyerim3dModalOpen(false);
+    setLoading(false);
+    setPaymentError(err || '3D Secure doğrulaması başarısız oldu veya işlem banka tarafından reddedildi.');
+  };
+
+  const handle3DClose = () => {
+    setIsyerim3dModalOpen(false);
+    setLoading(false);
+  };
+
+  const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) return;
 
@@ -177,34 +295,139 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       return;
     }
 
-    // Card validations if credit_card
+    const selectedOption = activeDeliveryOptions.find(d => d.id === selectedDeliveryId) || activeDeliveryOptions[0];
+    const deliveryTitle = selectedOption ? selectedOption.title : 'Hızlı Kargo ile Adrese Teslimat';
+    const deliveryTypeCode = (selectedOption?.type as DeliveryType) || 'kargo';
+
+    const primaryItem = cart[0];
+    const pkgNames = cart.map(i => `${i.package.name} (x${i.quantity})`).join(', ');
+
+    // 1. KREDİ / BANKA KARTI (İŞYERİM POS)
     if (paymentMethod === 'credit_card') {
       const cleanCard = cardNumber.replace(/\s+/g, '');
       if (cleanCard.length < 15 || !cardHolder.trim() || cardExpiry.length < 4 || cardCvv.length < 3) {
         alert('Lütfen geçerli kart bilgilerinizi eksiksiz giriniz.');
         return;
       }
+
+      const expiryParts = cardExpiry.split('/');
+      const expMonth = expiryParts[0] || '12';
+      const expYear = expiryParts[1] || '26';
+
+      setLoading(true);
+      setPaymentError(null);
+
+      const randomOrderNumber = 'EDF-' + Math.floor(10000 + Math.random() * 90000);
+
+      const signedContracts = generateCustomerContractSnapshots({
+        fullName: fullName.trim(),
+        tcVkn: tcVkn.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        isCorporate,
+        companyName: isCorporate ? companyName.trim() : undefined,
+        taxOffice: isCorporate ? taxOffice.trim() : undefined,
+        address: address.trim() || 'Adres belirtilmedi',
+        district: district.trim(),
+        city: 'ANKARA',
+        packageName: pkgNames,
+        totalAmount: payableAmount,
+        price: payableAmount,
+        paymentMethod: 'credit_card',
+        deliveryTitle
+      }, settings);
+
+      const stagedOrder = {
+        fullName: fullName.trim(),
+        tcVkn: tcVkn.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        isCorporate,
+        companyName: isCorporate ? companyName.trim() : undefined,
+        taxOffice: isCorporate ? taxOffice.trim() : undefined,
+        packageId: primaryItem?.package.id || 'pkg-1-yil',
+        packageName: pkgNames,
+        duration: primaryItem?.package.duration || '1 Yıl',
+        price: primaryItem?.package.price || 2450,
+        quantity: totalQuantity,
+        totalAmount: payableAmount,
+        items: cart,
+        deliveryType: deliveryTypeCode,
+        deliveryTitle,
+        address: address.trim() || 'Adres belirtilmedi',
+        city: 'ANKARA',
+        district: district.trim(),
+        paymentMethod: 'credit_card' as PaymentMethod,
+        paymentStatus: 'odendi' as PaymentStatus,
+        cardLast4: cleanCard.slice(-4),
+        notes: `İşyerim POS ile ödendi | Taksit: ${selectedInstallment} | Teslimat: ${deliveryTitle}${notes ? ' | Not: ' + notes.trim() : ''}`,
+        signedContracts,
+        legalAgreedAt: new Date().toISOString(),
+        orderNumber: randomOrderNumber,
+        posInstallment: selectedInstallment
+      };
+
+      setPendingOrderData(stagedOrder);
+
+      // İşyerim POS Sanal POS Ödeme Başlat (3D Secure)
+      try {
+        const payRes = await IsyerimPosService.create3DPayment({
+          returnUrl: `${window.location.origin}/odeme-sonuc`,
+          orderId: randomOrderNumber,
+          installment: selectedInstallment,
+          amount: payableAmount,
+          is3d: secure3d,
+          isAutoCommit: true,
+          reflectCost: reflectCostBool,
+          cardInfo: {
+            cardOwner: cardHolder.trim(),
+            cardNo: cleanCard,
+            month: expMonth,
+            year: expYear,
+            cvv: cardCvv.trim()
+          },
+          customerInfo: {
+            name: fullName.trim(),
+            phone: phone.trim(),
+            email: email.trim(),
+            address: address.trim() || 'ANKARA',
+            description: `${pkgNames} (${randomOrderNumber})`
+          },
+          products: cart.map(item => ({
+            name: item.package.name,
+            count: item.quantity,
+            unitPrice: item.package.price
+          }))
+        });
+
+        if (payRes.IsDone && (payRes.ResponseAsHtml || payRes.PaymentLink)) {
+          setLoading(false);
+          setIsyerim3dData({
+            uid: payRes.Uid,
+            orderId: randomOrderNumber,
+            amount: payableAmount,
+            paymentLink: payRes.PaymentLink,
+            responseAsHtml: payRes.ResponseAsHtml
+          });
+          setIsyerim3dModalOpen(true);
+        } else {
+          setLoading(false);
+          setPaymentError(payRes.Message || 'Ödeme isteği reddedildi. Lütfen kart bilgilerinizi kontrol ediniz.');
+        }
+      } catch (err: any) {
+        setLoading(false);
+        setPaymentError(err.message || 'Ödeme sunucusuna bağlanırken hata oluştu.');
+      }
+      return;
     }
 
-    const selectedOption = activeDeliveryOptions.find(d => d.id === selectedDeliveryId) || activeDeliveryOptions[0];
-    const deliveryTitle = selectedOption ? selectedOption.title : 'Hızlı Kargo ile Adrese Teslimat';
-    const deliveryTypeCode = (selectedOption?.type as DeliveryType) || 'kargo';
-
+    // 2. HAVALE / EFT veya KAPIDA ÖDEME
     const initialPaymentStatus: PaymentStatus = 
-      paymentMethod === 'credit_card' ? 'odendi' :
       paymentMethod === 'bank_transfer' ? 'havale_bekleniyor' : 'kapida_odeme';
-
-    const cardLast4 = paymentMethod === 'credit_card' 
-      ? cardNumber.replace(/\s+/g, '').slice(-4) 
-      : undefined;
 
     setLoading(true);
 
     setTimeout(() => {
-      const primaryItem = cart[0];
-      const pkgNames = cart.map(i => `${i.package.name} (x${i.quantity})`).join(', ');
-
-      // Generate populated legal contract snapshots with customer information
       const signedContracts = generateCustomerContractSnapshots({
         fullName: fullName.trim(),
         tcVkn: tcVkn.trim(),
@@ -245,7 +468,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         district: district.trim(),
         paymentMethod,
         paymentStatus: initialPaymentStatus,
-        cardLast4,
         notes: `Ödeme: ${paymentMethod} | Teslimat: ${deliveryTitle}${notes ? ' | Not: ' + notes.trim() : ''}`,
         signedContracts,
         legalAgreedAt: new Date().toISOString()
@@ -268,7 +490,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       setLoading(false);
       setCreatedOrder(order);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 1200);
+    }, 1000);
   };
 
   const handleCopyCode = () => {
@@ -925,19 +1147,20 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     )}
                   </div>
 
-                  {/* 1. Credit Card Form */}
+                  {/* 1. Credit Card Form (İşyerim POS) */}
                   {paymentMethod === 'credit_card' && (
                     <div className="p-5 rounded-2xl bg-slate-50/80 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/80 space-y-4 animate-in fade-in duration-200">
                       
+                      {/* Header */}
                       <div className="flex items-center justify-between pb-3 border-b border-zinc-200/60 dark:border-zinc-700/60">
                         <div>
                           <span className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
                             <Lock className="w-3.5 h-3.5 text-blue-600" />
-                            {settings.posProvider || 'Kart Bilgileri'}
+                            {settings.posProvider || '256-Bit SSL & 3D Secure Sanal POS'}
                           </span>
-                          {settings.posDescription && (
-                            <span className="text-[10px] text-zinc-500 block mt-0.5">{settings.posDescription}</span>
-                          )}
+                          <span className="text-[10px] text-zinc-500 block mt-0.5">
+                            {settings.posDescription || 'Tüm Visa, MasterCard ve Troy kartlarla güvenli anında ödeme.'}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-400">
                           <span>VISA</span>
@@ -948,6 +1171,47 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         </div>
                       </div>
 
+                      {/* Payment Error Banner */}
+                      {paymentError && (
+                        <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-300 flex items-center gap-2 animate-in fade-in">
+                          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                          <span>{paymentError}</span>
+                        </div>
+                      )}
+
+                      {/* Quick Test Cards Selector (dev.isyerimpos.com) */}
+                      {settings.isyerimPosTestMode !== false && (
+                        <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-900/60 text-xs space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-[11px] text-blue-900 dark:text-blue-200 flex items-center gap-1">
+                              <span>🧪 Test Modu Aktif (İşyerim POS)</span>
+                            </span>
+                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">Hızlı Doldur:</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {ISYERIM_TEST_CARDS.slice(0, 4).map((tc, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => handleSelectTestCard(tc)}
+                                className={`px-2 py-1 rounded-lg text-[10px] font-medium border transition cursor-pointer flex items-center gap-1 ${
+                                  selectedTestCard?.cardNo === tc.cardNo
+                                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                    : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-blue-50 dark:hover:bg-zinc-700'
+                                }`}
+                              >
+                                <span>{tc.bank} ({tc.schema})</span>
+                              </button>
+                            ))}
+                          </div>
+                          {selectedTestCard && (
+                            <div className="text-[10px] text-emerald-700 dark:text-emerald-300 font-medium pt-0.5">
+                              ✓ Seçildi: <strong>{selectedTestCard.bank}</strong> • 3D SMS Şifresi: <span className="font-mono font-bold bg-white dark:bg-zinc-900 px-1 py-0.5 rounded border border-emerald-300">{selectedTestCard.smsCode || 'a'}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <div>
                         <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                           Kart Üzerindeki İsim Soyisim *
@@ -957,15 +1221,37 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                           required={paymentMethod === 'credit_card'}
                           value={cardHolder}
                           onChange={(e) => setCardHolder(e.target.value.toUpperCase())}
-                          placeholder="Örn: MEHMET YILMAZ"
+                          placeholder="ÖRN: MEHMET YILMAZ"
                           className="w-full px-4 py-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition uppercase font-mono"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                          Kart Numarası *
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+                            Kart Numarası *
+                          </label>
+                          {installmentResult?.CardInfo && (
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                              {installmentResult.CardInfo.LogoUrl && (
+                                <img
+                                  src={installmentResult.CardInfo.LogoUrl}
+                                  alt=""
+                                  className="h-3.5 w-auto object-contain"
+                                />
+                              )}
+                              <span>{installmentResult.CardInfo.BankName || 'Kart Tanındı'}</span>
+                              <span>•</span>
+                              <span>{installmentResult.CardInfo.IsCreditCard ? 'Kredi Kartı' : 'Banka Kartı'}</span>
+                            </div>
+                          )}
+                          {loadingInstallments && (
+                            <span className="text-[10px] text-zinc-400 flex items-center gap-1">
+                              <span className="w-2.5 h-2.5 border border-zinc-400 border-t-transparent rounded-full animate-spin" />
+                              Sorgulanıyor...
+                            </span>
+                          )}
+                        </div>
                         <div className="relative">
                           <CreditCard className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                           <input
@@ -1010,6 +1296,78 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                           />
                         </div>
                       </div>
+
+                      {/* Taksit Seçenekleri Tablosu (İşyerim POS) */}
+                      {installmentResult?.Installments && installmentResult.Installments.length > 0 && settings.isyerimPosInstallmentsActive !== false && (
+                        <div className="pt-2 space-y-2 border-t border-zinc-200/60 dark:border-zinc-700/60 animate-in fade-in">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                              <span>Taksit Seçenekleri</span>
+                              {installmentResult.CardInfo?.BankName && (
+                                <span className="text-[10px] text-zinc-500 font-normal">({installmentResult.CardInfo.BankName})</span>
+                              )}
+                            </span>
+                            <span className="text-[10px] text-zinc-400">Tercih ettiğiniz taksiti seçiniz</span>
+                          </div>
+
+                          <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
+                            <table className="w-full text-left text-xs border-collapse">
+                              <thead>
+                                <tr className="bg-zinc-100 dark:bg-zinc-800 text-[10px] text-zinc-500 uppercase">
+                                  <th className="py-2 px-3">Taksit</th>
+                                  <th className="py-2 px-3">Aylık Tutar</th>
+                                  <th className="py-2 px-3 text-right">Toplam Tutar</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-zinc-200/60 dark:divide-zinc-700/60 bg-white dark:bg-zinc-900">
+                                {installmentResult.Installments.map((inst) => {
+                                  const isSelected = selectedInstallment === inst.Installment;
+                                  const monthly = (inst.WithdrawAmount / inst.Installment).toFixed(2);
+                                  return (
+                                    <tr
+                                      key={inst.Installment}
+                                      onClick={() => setSelectedInstallment(inst.Installment)}
+                                      className={`cursor-pointer transition ${
+                                        isSelected
+                                          ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-950 dark:text-blue-200 font-semibold'
+                                          : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/40 text-zinc-700 dark:text-zinc-300'
+                                      }`}
+                                    >
+                                      <td className="py-2.5 px-3 flex items-center gap-2">
+                                        <input
+                                          type="radio"
+                                          name="selected_installment"
+                                          checked={isSelected}
+                                          onChange={() => setSelectedInstallment(inst.Installment)}
+                                          className="text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                        />
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span>{inst.Installment === 1 ? 'Tek Çekim' : `${inst.Installment} Taksit`}</span>
+                                          {inst.WithdrawAmount <= grandTotal ? (
+                                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold">
+                                              Peşin Fiyatına
+                                            </span>
+                                          ) : (
+                                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-medium">
+                                              +{(inst.WithdrawAmount - grandTotal).toLocaleString('tr-TR')} ₺ vade farkı
+                                            </span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="py-2.5 px-3 font-mono">
+                                        {Number(monthly).toLocaleString('tr-TR')} ₺ / ay
+                                      </td>
+                                      <td className="py-2.5 px-3 font-mono text-right font-bold text-zinc-900 dark:text-white">
+                                        {inst.WithdrawAmount.toLocaleString('tr-TR')} ₺
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="flex items-center gap-2 pt-2">
                         <input
@@ -1164,7 +1522,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   ) : (
                     <>
                       <Lock className="w-5 h-5" />
-                      <span>{grandTotal.toLocaleString('tr-TR')} ₺ • Güvenli Ödemeyi Tamamla</span>
+                      <span>{payableAmount.toLocaleString('tr-TR')} ₺ • Güvenli Ödemeyi Tamamla</span>
                       <ArrowRight className="w-5 h-5" />
                     </>
                   )}
@@ -1261,13 +1619,25 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       <span>Teslimat & Kurulum</span>
                       <span className="text-emerald-600 dark:text-emerald-400 font-bold">ÜCRETSİZ</span>
                     </div>
+                    {payableAmount > grandTotal && (
+                      <div className="flex justify-between text-amber-600 dark:text-amber-400 font-medium">
+                        <span>Banka Komisyon / Vade Farkı ({selectedInstallment === 1 ? 'Tek Çekim' : `${selectedInstallment} Taksit`})</span>
+                        <span className="font-mono">+{(payableAmount - grandTotal).toLocaleString('tr-TR')} ₺</span>
+                      </div>
+                    )}
                     <div className="pt-2.5 border-t border-zinc-200 dark:border-zinc-700 flex justify-between items-baseline">
                       <span className="font-bold text-sm text-zinc-900 dark:text-white">Genel Toplam</span>
                       <div className="text-right">
                         <span className="font-mono text-2xl font-extrabold text-blue-600 dark:text-blue-400 block">
-                          {grandTotal.toLocaleString('tr-TR')} ₺
+                          {payableAmount.toLocaleString('tr-TR')} ₺
                         </span>
-                        <span className="text-[10px] text-zinc-400">KDV Dahil Net Tutar</span>
+                        {payableAmount !== grandTotal ? (
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold block">
+                            {selectedInstallment === 1 ? 'Komisyon Maliyeti Dahil' : `${selectedInstallment} Taksit Vade Farkı Dahil`}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-zinc-400">KDV Dahil Net Tutar</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1354,6 +1724,21 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           © {new Date().getFullYear()} {settings.companyName || 'E-DİJİTAL FİNANS'}. Tüm hakları saklıdır. 256-Bit SSL Sertifikası ile ödemeleriniz güvence altındadır.
         </p>
       </footer>
+
+      {/* 3D SECURE MODAL */}
+      {isyerim3dData && (
+        <Isyerim3DModal
+          isOpen={isyerim3dModalOpen}
+          onClose={handle3DClose}
+          onSuccess={handle3DSuccess}
+          onFailure={handle3DFailure}
+          uid={isyerim3dData.uid}
+          orderId={isyerim3dData.orderId}
+          amount={isyerim3dData.amount}
+          paymentLink={isyerim3dData.paymentLink}
+          responseAsHtml={isyerim3dData.responseAsHtml}
+        />
+      )}
 
     </div>
   );

@@ -25,6 +25,7 @@ import { Phone, MessageSquare, Shield, ArrowUp } from 'lucide-react';
 import { LegalPage, LegalDocSlug, LEGAL_DOCS } from './pages/LegalPage';
 import { CookieBanner } from './components/CookieBanner';
 import { WelcomeInfoModal } from './components/WelcomeInfoModal';
+import { PaymentCallbackPage } from './pages/PaymentCallbackPage';
 
 // Helper to match legal contract URLs
 const getLegalDocFromPath = (path: string, hash: string): LegalDocSlug | null => {
@@ -54,8 +55,8 @@ export function App() {
     return false; // Always default to Light Theme
   });
 
-  // App mode: 'public' | 'admin' | 'checkout' | 'legal'
-  const [viewMode, setViewMode] = useState<'public' | 'admin' | 'checkout' | 'legal'>(() => {
+  // App mode: 'public' | 'admin' | 'checkout' | 'legal' | 'payment_callback'
+  const [viewMode, setViewMode] = useState<'public' | 'admin' | 'checkout' | 'legal' | 'payment_callback'>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
@@ -64,6 +65,9 @@ export function App() {
       }
       if (path === '/odeme' || path.startsWith('/odeme/') || path === '/checkout' || hash === '#odeme' || hash === '#checkout') {
         return 'checkout';
+      }
+      if (path === '/odeme-sonuc' || path.startsWith('/odeme-sonuc') || hash === '#odeme-sonuc') {
+        return 'payment_callback';
       }
       const legalMatch = getLegalDocFromPath(path, hash);
       if (legalMatch) {
@@ -124,6 +128,8 @@ export function App() {
         setViewMode('admin');
       } else if (path === '/odeme' || path.startsWith('/odeme/') || path === '/checkout' || hash === '#odeme' || hash === '#checkout') {
         setViewMode('checkout');
+      } else if (path === '/odeme-sonuc' || path.startsWith('/odeme-sonuc') || hash === '#odeme-sonuc') {
+        setViewMode('payment_callback');
       } else {
         const legalMatch = getLegalDocFromPath(path, hash);
         if (legalMatch) {
@@ -402,6 +408,21 @@ export function App() {
           setIsAdminAuth(false);
           setIsAuthChecking(false);
           navigateToPublic();
+        }}
+      />
+    );
+  }
+
+  // =========================================================================
+  // 1.5. PAYMENT CALLBACK VIEW (/odeme-sonuc)
+  // =========================================================================
+  if (viewMode === 'payment_callback') {
+    return (
+      <PaymentCallbackPage
+        onBackToHome={navigateToPublic}
+        onNavigateToTrack={(code) => {
+          navigateToPublic();
+          setIsOrderTrackOpen(true);
         }}
       />
     );

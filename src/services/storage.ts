@@ -93,6 +93,15 @@ const DEFAULT_SETTINGS: SiteSettings = {
   require3dSecure: true,
   cashOnDeliveryActive: false,
   cashOnDeliveryNote: 'Teslimat anında nakit veya temassız pos ile ödeme.',
+
+  // İşyerim POS Entegrasyon Bilgileri
+  isyerimPosActive: true,
+  isyerimPosTestMode: true,
+  isyerimPosMerchantId: '11039',
+  isyerimPosUserId: '445',
+  isyerimPosApiKey: 'AQAAAAEAACcQAAAAEBfEWS9XGrZta1wfYC1qeTCA2gJIbDH1+rQEdrY8k4qE8EFtWf3i0Axyb4jY2uReyw==',
+  isyerimPosReflectCost: 'false',
+  isyerimPosInstallmentsActive: true,
   deliveryOptions: DEFAULT_DELIVERY_OPTIONS,
   heroBadge: 'Ankara İçi 15 Dakikada Adrese / Mağazada Teslimat',
   heroTitle: 'Hızlı, Güvenilir ve Resmi E-İmza Hizmeti',
@@ -263,6 +272,9 @@ export const StorageService = {
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
+        isyerimPosReflectCost: (parsed.isyerimPosReflectCost === 'true' || parsed.isyerimPosReflectCost === 'null')
+          ? parsed.isyerimPosReflectCost
+          : 'false',
         sections: {
           ...DEFAULT_SETTINGS.sections,
           ...(parsed.sections || {})
@@ -499,6 +511,9 @@ export const StorageService = {
     notes?: string;
     signedContracts?: import('../types').SignedLegalContract[];
     legalAgreedAt?: string;
+    posTransactionUid?: string;
+    posAuthCode?: string;
+    posInstallment?: number;
   }): Order {
     const orders = this.getOrders();
     const randomCode = 'EDF-' + Math.floor(10000 + Math.random() * 90000);
@@ -540,6 +555,9 @@ export const StorageService = {
       notes: orderData.notes,
       signedContracts: orderData.signedContracts,
       legalAgreedAt: orderData.legalAgreedAt || (orderData.signedContracts ? new Date().toISOString() : undefined),
+      posTransactionUid: orderData.posTransactionUid,
+      posAuthCode: orderData.posAuthCode,
+      posInstallment: orderData.posInstallment,
       status: 'yeni',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
