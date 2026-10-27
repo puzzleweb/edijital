@@ -1,0 +1,28 @@
+:80 {
+    root * /usr/share/caddy
+    encode gzip zstd
+
+    # İşyerim POS Test API Reverse Proxy
+    handle /api/isyerimpos/test/* {
+        uri strip_prefix /api/isyerimpos/test
+        rewrite * /v1{path}
+        reverse_proxy https://apitest.isyerimpos.com {
+            header_up Host apitest.isyerimpos.com
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    # İşyerim POS Canlı / Gerçek API Reverse Proxy
+    handle /api/isyerimpos/prod/* {
+        uri strip_prefix /api/isyerimpos/prod
+        rewrite * /v1{path}
+        reverse_proxy https://api.isyerimpos.com {
+            header_up Host api.isyerimpos.com
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    # SPA routing fallback
+    try_files {path} /index.html
+    file_server
+}
